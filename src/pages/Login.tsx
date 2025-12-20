@@ -4,14 +4,22 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { FileText, Mail, Lock, Shield, Sparkles, CheckCircle } from 'lucide-react';
+import { FileText, Mail, Lock, Shield, Sparkles, CheckCircle, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const Login: React.FC = () => {
-  const { loginWithGoogle, loginAsAdmin, isLoading } = useAuth();
+  const { loginWithGoogle, loginWithEmail, signUpWithEmail, loginAsAdmin, isLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   
+  // User email/password state
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
+  const [userPassword, setUserPassword] = useState('');
+  const [userName, setUserName] = useState('');
+  const [userLoading, setUserLoading] = useState(false);
+  
+  // Admin state
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [adminLoading, setAdminLoading] = useState(false);
@@ -23,6 +31,44 @@ const Login: React.FC = () => {
       description: "You've successfully logged in.",
     });
     navigate('/dashboard');
+  };
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUserLoading(true);
+    
+    if (isSignUp) {
+      const success = await signUpWithEmail(userEmail, userPassword, userName);
+      if (success) {
+        toast({
+          title: "Account Created!",
+          description: "Welcome to Resume Builder.",
+        });
+        navigate('/dashboard');
+      } else {
+        toast({
+          title: "Sign Up Failed",
+          description: "Please check your details and try again.",
+          variant: "destructive",
+        });
+      }
+    } else {
+      const success = await loginWithEmail(userEmail, userPassword);
+      if (success) {
+        toast({
+          title: "Welcome Back!",
+          description: "You've successfully logged in.",
+        });
+        navigate('/dashboard');
+      } else {
+        toast({
+          title: "Login Failed",
+          description: "Invalid email or password.",
+          variant: "destructive",
+        });
+      }
+    }
+    setUserLoading(false);
   };
 
   const handleAdminLogin = async (e: React.FormEvent) => {
@@ -92,8 +138,9 @@ const Login: React.FC = () => {
             ))}
           </div>
 
-          {/* Google Login Button */}
+          {/* Auth Options */}
           <div className="space-y-4">
+            {/* Google Login Button */}
             <Button
               variant="google"
               size="xl"
@@ -121,6 +168,74 @@ const Login: React.FC = () => {
               </svg>
               {isLoading ? 'Signing in...' : 'Continue with Google'}
             </Button>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-primary-foreground/20" />
+              <span className="text-primary-foreground/50 text-sm">or</span>
+              <div className="flex-1 h-px bg-primary-foreground/20" />
+            </div>
+
+            {/* Email/Password Form */}
+            <form onSubmit={handleEmailAuth} className="space-y-3">
+              {isSignUp && (
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-foreground/50" />
+                  <Input
+                    type="text"
+                    placeholder="Full Name"
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    className="pl-10 bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground placeholder:text-primary-foreground/50"
+                    required={isSignUp}
+                  />
+                </div>
+              )}
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-foreground/50" />
+                <Input
+                  type="email"
+                  placeholder="Email address"
+                  value={userEmail}
+                  onChange={(e) => setUserEmail(e.target.value)}
+                  className="pl-10 bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground placeholder:text-primary-foreground/50"
+                  required
+                />
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-foreground/50" />
+                <Input
+                  type="password"
+                  placeholder="Password (min 6 characters)"
+                  value={userPassword}
+                  onChange={(e) => setUserPassword(e.target.value)}
+                  className="pl-10 bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground placeholder:text-primary-foreground/50"
+                  required
+                  minLength={6}
+                />
+              </div>
+              <Button
+                type="submit"
+                variant="hero"
+                size="lg"
+                className="w-full"
+                disabled={userLoading}
+              >
+                {userLoading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
+              </Button>
+            </form>
+
+            {/* Toggle Sign In / Sign Up */}
+            <p className="text-center text-primary-foreground/70 text-sm">
+              {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+              <button
+                type="button"
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="text-accent hover:underline font-medium"
+              >
+                {isSignUp ? 'Sign In' : 'Sign Up'}
+              </button>
+            </p>
 
             <p className="text-center text-primary-foreground/50 text-sm">
               By continuing, you agree to our Terms of Service

@@ -19,6 +19,8 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   loginWithGoogle: () => Promise<void>;
+  loginWithEmail: (email: string, password: string) => Promise<boolean>;
+  signUpWithEmail: (email: string, password: string, name: string) => Promise<boolean>;
   loginAsAdmin: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   sessions: Session[];
@@ -95,6 +97,56 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(false);
   };
 
+  const loginWithEmail = async (email: string, password: string): Promise<boolean> => {
+    setIsLoading(true);
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // Mock email login - in production, validate against backend
+    if (email && password.length >= 6) {
+      const emailUser: User = {
+        id: 'email_' + Date.now(),
+        email: email,
+        name: email.split('@')[0],
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(email.split('@')[0])}&background=1E3A8A&color=fff`,
+        isAdmin: false,
+        loginTime: new Date(),
+      };
+      
+      setUser(emailUser);
+      localStorage.setItem('resumeBuilder_user', JSON.stringify(emailUser));
+      setIsLoading(false);
+      return true;
+    }
+    
+    setIsLoading(false);
+    return false;
+  };
+
+  const signUpWithEmail = async (email: string, password: string, name: string): Promise<boolean> => {
+    setIsLoading(true);
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // Mock sign up - in production, create user in backend
+    if (email && password.length >= 6 && name) {
+      const newUser: User = {
+        id: 'email_' + Date.now(),
+        email: email,
+        name: name,
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=1E3A8A&color=fff`,
+        isAdmin: false,
+        loginTime: new Date(),
+      };
+      
+      setUser(newUser);
+      localStorage.setItem('resumeBuilder_user', JSON.stringify(newUser));
+      setIsLoading(false);
+      return true;
+    }
+    
+    setIsLoading(false);
+    return false;
+  };
+
   const loginAsAdmin = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     await new Promise(resolve => setTimeout(resolve, 800));
@@ -126,7 +178,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, loginWithGoogle, loginAsAdmin, logout, sessions }}>
+    <AuthContext.Provider value={{ user, isLoading, loginWithGoogle, loginWithEmail, signUpWithEmail, loginAsAdmin, logout, sessions }}>
       {children}
     </AuthContext.Provider>
   );
