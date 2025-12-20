@@ -5,14 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  FileText, 
-  User, 
-  Briefcase, 
-  GraduationCap, 
-  Award, 
-  Download, 
-  Eye, 
+import {
+  FileText,
+  User,
+  Briefcase,
+  GraduationCap,
+  Award,
+  Download,
+  Eye,
   Palette,
   Check,
   Mail,
@@ -27,6 +27,8 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import html2pdf from 'html2pdf.js';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 
 interface Project {
   name: string;
@@ -223,11 +225,221 @@ const BuildResume: React.FC = () => {
     }));
   };
 
-  const handleDownload = () => {
-    toast({
-      title: "Download Started",
-      description: "Your resume is being generated as PDF.",
-    });
+  const handleDownloadPDF = async () => {
+    try {
+      const element = document.querySelector('.aspect-[8.5/11]') as HTMLElement;
+      if (!element) {
+        toast({
+          title: "Error",
+          description: "Could not find resume content to export.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Temporarily remove overflow for PDF generation
+      const originalOverflow = element.style.overflow;
+      element.style.overflow = 'visible';
+
+      const opt = {
+        margin: 0.5,
+        filename: `${resumeData.personal.fullName.replace(/\s+/g, '_')}_resume.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      } as any;
+
+      await html2pdf().set(opt).from(element).save();
+
+      // Restore original overflow
+      element.style.overflow = originalOverflow;
+
+      toast({
+        title: "Download Complete",
+        description: "Your resume PDF has been downloaded successfully.",
+      });
+    } catch (error) {
+      console.error('PDF Download Error:', error);
+      toast({
+        title: "Download Failed",
+        description: "There was an error generating your PDF. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownloadDOCX = async () => {
+    try {
+      const children: any[] = [];
+
+      // Header with name
+      children.push(new Paragraph({
+        text: resumeData.personal.fullName,
+        heading: HeadingLevel.TITLE,
+        alignment: AlignmentType.CENTER,
+      }));
+
+      // Contact info
+      children.push(new Paragraph({
+        children: [
+          new TextRun({ text: `Email: ${resumeData.personal.email} | ` }),
+          new TextRun({ text: `Phone: ${resumeData.personal.phone} | ` }),
+          new TextRun({ text: `Location: ${resumeData.personal.location}` }),
+        ],
+        alignment: AlignmentType.CENTER,
+      }));
+
+      // Social links
+      if (resumeData.personal.linkedin || resumeData.personal.github) {
+        const socialChildren = [];
+        if (resumeData.personal.linkedin) {
+          socialChildren.push(new TextRun({ text: `LinkedIn: ${resumeData.personal.linkedin} | ` }));
+        }
+        if (resumeData.personal.github) {
+          socialChildren.push(new TextRun({ text: `GitHub: ${resumeData.personal.github}` }));
+        }
+        children.push(new Paragraph({
+          children: socialChildren,
+          alignment: AlignmentType.CENTER,
+        }));
+      }
+
+      // Summary
+      if (resumeData.personal.summary) {
+        children.push(new Paragraph({
+          text: "SUMMARY",
+          heading: HeadingLevel.HEADING_2,
+        }));
+        children.push(new Paragraph({
+          text: resumeData.personal.summary,
+        }));
+      }
+
+      // Experience
+      const validExperience = resumeData.experience.filter(exp => exp.title && exp.title.trim());
+      if (validExperience.length > 0) {
+        children.push(new Paragraph({
+          text: "EXPERIENCE",
+          heading: HeadingLevel.HEADING_2,
+        }));
+        validExperience.forEach(exp => {
+          children.push(new Paragraph({
+            children: [
+              new TextRun({ text: exp.title, bold: true }),
+              new TextRun({ text: ` at ${exp.company}` }),
+              new TextRun({ text: ` (${exp.duration})`, italics: true }),
+            ],
+          }));
+          if (exp.description) {
+            children.push(new Paragraph({
+              text: exp.description,
+            }));
+          }
+          children.push(new Paragraph({ text: "" })); // Empty line
+        });
+      }
+
+      // Projects
+      const validProjects = resumeData.projects.filter(p => p.name && p.name.trim());
+      if (validProjects.length > 0) {
+        children.push(new Paragraph({
+          text: "PROJECTS",
+          heading: HeadingLevel.HEADING_2,
+        }));
+        validProjects.forEach(project => {
+          const projectChildren = [new TextRun({ text: project.name, bold: true })];
+          if (project.repoLink) {
+            projectChildren.push(new TextRun({ text: ` (${project.repoLink})` }));
+          }
+          children.push(new Paragraph({
+            children: projectChildren,
+          }));
+          if (project.description) {
+            children.push(new Paragraph({
+              text: project.description,
+            }));
+          }
+          if (project.technologies) {
+            children.push(new Paragraph({
+              children: [
+                new TextRun({ text: `Technologies: ${project.technologies}`, italics: true }),
+              ],
+            }));
+          }
+          children.push(new Paragraph({ text: "" })); // Empty line
+        });
+      }
+
+      // Education
+      const validEducation = resumeData.education.filter(edu => edu.degree && edu.degree.trim());
+      if (validEducation.length > 0) {
+        children.push(new Paragraph({
+          text: "EDUCATION",
+          heading: HeadingLevel.HEADING_2,
+        }));
+        validEducation.forEach(edu => {
+          children.push(new Paragraph({
+            children: [
+              new TextRun({ text: edu.degree, bold: true }),
+              new TextRun({ text: ` - ${edu.school}` }),
+              new TextRun({ text: ` (${edu.year})`, italics: true }),
+            ],
+          }));
+        });
+      }
+
+      // Skills
+      if (resumeData.skills.length > 0) {
+        children.push(new Paragraph({
+          text: "SKILLS",
+          heading: HeadingLevel.HEADING_2,
+        }));
+        children.push(new Paragraph({
+          text: resumeData.skills.join(', '),
+        }));
+      }
+
+      // Hobbies
+      if (resumeData.hobbies.length > 0) {
+        children.push(new Paragraph({
+          text: "INTERESTS",
+          heading: HeadingLevel.HEADING_2,
+        }));
+        children.push(new Paragraph({
+          text: resumeData.hobbies.join(', '),
+        }));
+      }
+
+      const doc = new Document({
+        sections: [{
+          properties: {},
+          children: children,
+        }],
+      });
+
+      const buffer = await Packer.toBuffer(doc);
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${resumeData.personal.fullName.replace(/\s+/g, '_')}_resume.docx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Download Complete",
+        description: "Your resume DOCX has been downloaded successfully.",
+      });
+    } catch (error) {
+      console.error('DOCX Download Error:', error);
+      toast({
+        title: "Download Failed",
+        description: "There was an error generating your DOCX. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const currentTemplate = templates.find(t => t.id === selectedTemplate);
@@ -247,7 +459,11 @@ const BuildResume: React.FC = () => {
             <Eye className="w-4 h-4 mr-2" />
             Preview
           </Button>
-          <Button variant="gradient" onClick={handleDownload}>
+          <Button variant="outline" onClick={handleDownloadDOCX}>
+            <Download className="w-4 h-4 mr-2" />
+            Download DOCX
+          </Button>
+          <Button variant="gradient" onClick={handleDownloadPDF}>
             <Download className="w-4 h-4 mr-2" />
             Download PDF
           </Button>

@@ -1,6 +1,13 @@
 // Auth Context - provides authentication state and methods
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
+// Declare global gapi for TypeScript
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+
 interface User {
   id: string;
   email: string;
@@ -76,49 +83,67 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (savedUser) {
       setUser(JSON.parse(savedUser));
     }
+
+    // Initialize Google Identity Services
+    if (window.google && window.google.accounts) {
+      window.google.accounts.id.initialize({
+        client_id: '398831575246-k56l7aa7kvs4s0lill4m4na7l1bh1l1a.apps.googleusercontent.com',
+        callback: (response: any) => {
+          // Handle Google sign-in response
+          const googleUser: User = {
+            id: 'google_' + Date.now(),
+            email: response.email,
+            name: response.name,
+            avatar: response.picture,
+            isAdmin: false,
+            loginTime: new Date(),
+          };
+
+          setUser(googleUser);
+          localStorage.setItem('resumeBuilder_user', JSON.stringify(googleUser));
+          setIsLoading(false);
+        },
+      });
+    }
+
     setIsLoading(false);
   }, []);
 
   const loginWithGoogle = async () => {
     setIsLoading(true);
-    // Simulate Google OAuth
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const mockUser: User = {
-      id: 'google_' + Date.now(),
-      email: 'user@gmail.com',
-      name: 'Google User',
-      avatar: 'https://ui-avatars.com/api/?name=Google+User&background=1E3A8A&color=fff',
-      isAdmin: false,
-      loginTime: new Date(),
-    };
-    
-    setUser(mockUser);
-    localStorage.setItem('resumeBuilder_user', JSON.stringify(mockUser));
-    setIsLoading(false);
+    if (window.google && window.google.accounts) {
+      window.google.accounts.id.prompt();
+    } else {
+      // Fallback if Google script not loaded
+      console.error('Google Identity Services not loaded');
+      setIsLoading(false);
+    }
   };
 
   const loginWithEmail = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     await new Promise(resolve => setTimeout(resolve, 800));
-    
-    // Mock email login - in production, validate against backend
-    if (email && password.length >= 6) {
+
+    // Get stored sign-up users
+    const storedUsers = JSON.parse(localStorage.getItem('resumeBuilder_signup_users') || '[]');
+    const matchingUser = storedUsers.find((user: any) => user.email === email && user.password === password);
+
+    if (matchingUser) {
       const emailUser: User = {
         id: 'email_' + Date.now(),
-        email: email,
-        name: email.split('@')[0],
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(email.split('@')[0])}&background=1E3A8A&color=fff`,
+        email: matchingUser.email,
+        name: matchingUser.name,
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(matchingUser.name)}&background=1E3A8A&color=fff`,
         isAdmin: false,
         loginTime: new Date(),
       };
-      
+
       setUser(emailUser);
       localStorage.setItem('resumeBuilder_user', JSON.stringify(emailUser));
       setIsLoading(false);
       return true;
     }
-    
+
     setIsLoading(false);
     return false;
   };
@@ -126,10 +151,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signUpWithEmail = async (email: string, password: string, name: string): Promise<boolean> => {
     setIsLoading(true);
     await new Promise(resolve => setTimeout(resolve, 800));
-    
+
+    // Check if email already exists
+    const storedUsers = JSON.parse(localStorage.getItem('resumeBuilder_signup_users') || '[]');
+    const existingUser = storedUsers.find((user: any) => user.email === email);
+
+    if (existingUser) {
+      setIsLoading(false);
+      return false; // Email already exists
+    }
+
     // Mock sign up - in production, create user in backend
     if (email && password.length >= 6 && name) {
-      const newUser: User = {
+      const newUser = {
+        email: email,
+        password: password,
+        name: name,
+      };
+
+      // Store sign-up credentials
+      storedUsers.push(newUser);
+      localStorage.setItem('resumeBuilder_signup_users', JSON.stringify(storedUsers));
+
+      const loggedInUser: User = {
         id: 'email_' + Date.now(),
         email: email,
         name: name,
@@ -137,13 +181,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isAdmin: false,
         loginTime: new Date(),
       };
-      
-      setUser(newUser);
-      localStorage.setItem('resumeBuilder_user', JSON.stringify(newUser));
+
+      setUser(loggedInUser);
+      localStorage.setItem('resumeBuilder_user', JSON.stringify(loggedInUser));
       setIsLoading(false);
       return true;
     }
-    
+
     setIsLoading(false);
     return false;
   };

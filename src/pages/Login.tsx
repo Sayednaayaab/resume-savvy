@@ -63,7 +63,7 @@ const Login: React.FC = () => {
       } else {
         toast({
           title: "Login Failed",
-          description: "Invalid email or password.",
+          description: "Invalid credentials.",
           variant: "destructive",
         });
       }
