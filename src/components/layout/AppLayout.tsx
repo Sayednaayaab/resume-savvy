@@ -1,17 +1,10 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
+import { Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import Login from './Login';
+import Navbar from './Navbar';
 
-const Index = () => {
+const AppLayout: React.FC = () => {
   const { user, isLoading } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!isLoading && user) {
-      navigate('/dashboard');
-    }
-  }, [user, isLoading, navigate]);
 
   if (isLoading) {
     return (
@@ -24,7 +17,18 @@ const Index = () => {
     );
   }
 
-  return <Login />;
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+
+  return (
+    <div className="min-h-screen gradient-surface">
+      <Navbar />
+      <main className="container mx-auto px-4 py-8">
+        <Outlet />
+      </main>
+    </div>
+  );
 };
 
-export default Index;
+export default AppLayout;
