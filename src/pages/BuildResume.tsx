@@ -239,7 +239,7 @@ const SKILLS_DATABASE = [
   'Foundry', 'The Graph', 'Arweave'
 ];
 
-const BuildResume: React.FC = () => {
+const BuildResume = () => {
   const { toast } = useToast();
   const { incrementResumeCreated, user } = useAuth();
   const [selectedTemplate, setSelectedTemplate] = useState('professional');
@@ -428,7 +428,7 @@ const BuildResume: React.FC = () => {
 
   const handleDownloadPDF = async () => {
     try {
-      const element = document.querySelector('.aspect-[8.5/11]') as HTMLElement;
+      const element = document.getElementById('resume-preview') as HTMLElement;
       if (!element) {
         toast({
           title: "Error",
@@ -438,21 +438,25 @@ const BuildResume: React.FC = () => {
         return;
       }
 
-      // Temporarily remove overflow for PDF generation
+      // Temporarily set fixed dimensions for PDF generation
+      const originalHeight = element.style.height;
       const originalOverflow = element.style.overflow;
+      element.style.height = '11in';
+      element.style.width = '8.5in';
       element.style.overflow = 'visible';
 
       const opt = {
         margin: 0.5,
         filename: `${resumeData.personal.fullName.replace(/\s+/g, '_')}_resume.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: { scale: 2, allowTaint: true, useCORS: false },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
       } as any;
 
       await html2pdf().set(opt).from(element).save();
 
-      // Restore original overflow
+      // Restore original styles
+      element.style.height = originalHeight;
       element.style.overflow = originalOverflow;
 
       incrementResumeCreated(user?.email || '');
@@ -471,8 +475,12 @@ const BuildResume: React.FC = () => {
   };
 
   const handleDownloadDOCX = async () => {
+    console.log('Starting DOCX download...');
     try {
+      console.log('Creating document children...');
       const children: any[] = [];
+
+      console.log('Adding header...');
 
       // Header with name
       children.push(new Paragraph({
@@ -619,8 +627,7 @@ const BuildResume: React.FC = () => {
         }],
       });
 
-      const buffer = await Packer.toBuffer(doc);
-      const blob = new Blob([buffer.buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      const blob = await Packer.toBlob(doc);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -645,7 +652,169 @@ const BuildResume: React.FC = () => {
     }
   };
 
-  const currentTemplate = templates.find(t => t.id === selectedTemplate);
+  const handlePreview = () => {
+    try {
+      const element = document.getElementById('resume-preview') as HTMLElement;
+      if (!element) {
+        toast({
+          title: "Error",
+          description: "Could not find resume content to preview.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create a new window for preview
+      const previewWindow = window.open('', '_blank', 'width=800,height=600');
+      if (!previewWindow) {
+        toast({
+          title: "Error",
+          description: "Could not open preview window. Please allow popups for this site.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Clone the element and prepare it for printing
+      const clonedElement = element.cloneNode(true) as HTMLElement;
+      clonedElement.style.width = '8.5in';
+      clonedElement.style.height = '11in';
+      clonedElement.style.margin = '0';
+      clonedElement.style.padding = '0.5in';
+      clonedElement.style.boxSizing = 'border-box';
+      clonedElement.style.fontSize = '12px';
+
+      // Create HTML content for the new window
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Resume Preview - ${resumeData.personal.fullName}</title>
+          <style>
+            body {
+              margin: 0;
+              padding: 20px;
+              font-family: Arial, sans-serif;
+              background: white;
+            }
+            .print-button {
+              position: fixed;
+              top: 10px;
+              right: 10px;
+              padding: 10px 20px;
+              background: #007bff;
+              color: white;
+              border: none;
+              border-radius: 5px;
+              cursor: pointer;
+            }
+            .print-button:hover {
+              background: #0056b3;
+            }
+            @media print {
+              .print-button { display: none; }
+              body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <button class="print-button" onclick="window.print()">Print Resume</button>
+          ${clonedElement.outerHTML}
+        </body>
+        </html>
+      `;
+
+      previewWindow.document.write(htmlContent);
+      previewWindow.document.close();
+
+      toast({
+        title: "Preview Opened",
+        description: "Resume preview opened in a new window.",
+      });
+    } catch (error) {
+      console.error('Preview Error:', error);
+      toast({
+        title: "Preview Failed",
+        description: "There was an error opening the preview. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExportCSV = () => {
+    try {
+      // Create CSV content
+      let csvContent = "Section,Details\n";
+
+      // Personal Information
+      csvContent += `"Personal Information","Name: ${resumeData.personal.fullName}"\n`;
+      csvContent += `,"Email: ${resumeData.personal.email}"\n`;
+      csvContent += `,"Phone: ${resumeData.personal.phone}"\n`;
+      csvContent += `,"Location: ${resumeData.personal.location}"\n`;
+      if (resumeData.personal.linkedin) csvContent += `,"LinkedIn: ${resumeData.personal.linkedin}"\n`;
+      if (resumeData.personal.github) csvContent += `,"GitHub: ${resumeData.personal.github}"\n`;
+      if (resumeData.personal.summary) csvContent += `,"Summary: ${resumeData.personal.summary.replace(/"/g, '""')}"\n`;
+
+      // Experience
+      resumeData.experience.filter(exp => exp.title).forEach((exp, index) => {
+        csvContent += `"Experience ${index + 1}","Title: ${exp.title}"\n`;
+        csvContent += `,"Company: ${exp.company}"\n`;
+        csvContent += `,"Duration: ${exp.duration}"\n`;
+        csvContent += `,"Description: ${exp.description.replace(/"/g, '""')}"\n`;
+      });
+
+      // Education
+      resumeData.education.filter(edu => edu.degree).forEach((edu, index) => {
+        csvContent += `"Education ${index + 1}","Degree: ${edu.degree}"\n`;
+        csvContent += `,"School: ${edu.school}"\n`;
+        csvContent += `,"Year: ${edu.year}"\n`;
+      });
+
+      // Skills
+      if (resumeData.skills.length > 0) {
+        csvContent += `"Skills","${resumeData.skills.join(', ')}"\n`;
+      }
+
+      // Projects
+      resumeData.projects.filter(p => p.name).forEach((project, index) => {
+        csvContent += `"Project ${index + 1}","Name: ${project.name}"\n`;
+        csvContent += `,"Description: ${project.description.replace(/"/g, '""')}"\n`;
+        csvContent += `,"Technologies: ${project.technologies}"\n`;
+        if (project.repoLink) csvContent += `,"Repository: ${project.repoLink}"\n`;
+        if (project.liveLink) csvContent += `,"Live Demo: ${project.liveLink}"\n`;
+      });
+
+      // Hobbies
+      if (resumeData.hobbies.length > 0) {
+        csvContent += `"Hobbies","${resumeData.hobbies.join(', ')}"\n`;
+      }
+
+      // Create and download CSV file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${resumeData.personal.fullName.replace(/\s+/g, '_')}_resume_data.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Export Complete",
+        description: "Your resume data has been exported to CSV successfully.",
+      });
+    } catch (error) {
+      console.error('CSV Export Error:', error);
+      toast({
+        title: "Export Failed",
+        description: "There was an error exporting your data to CSV. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const currentTemplate = templates.find(t => t.id === selectedTemplate) || templates[0];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -658,7 +827,7 @@ const BuildResume: React.FC = () => {
           </p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline">
+          <Button variant="outline" onClick={handlePreview}>
             <Eye className="w-4 h-4 mr-2" />
             Preview
           </Button>
@@ -1086,8 +1255,9 @@ const BuildResume: React.FC = () => {
             </CardHeader>
             <CardContent className="p-0">
               {/* Resume Preview */}
-              <div 
-                className="aspect-[8.5/11] bg-card p-6 text-sm overflow-y-auto"
+              <div
+                id="resume-preview"
+                className="bg-card p-6 text-sm"
                 style={{ borderLeft: `4px solid ${currentTemplate?.color}` }}
               >
                 <div className="space-y-3">
