@@ -27,6 +27,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import html2pdf from 'html2pdf.js';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 
@@ -72,11 +73,180 @@ const templates = [
   { id: 'minimal', name: 'Minimal', color: '#6B7280', popular: false },
 ];
 
+// Predefined skills database
+const SKILLS_DATABASE = [
+  // Programming Languages
+  'JavaScript', 'TypeScript', 'Python', 'Java', 'C++', 'C#', 'Go', 'Rust', 'PHP', 'Ruby', 'Swift', 'Kotlin', 'Scala', 'R', 'MATLAB',
+  'Perl', 'Lua', 'Haskell', 'Clojure', 'Elixir', 'Erlang', 'Dart', 'Objective-C', 'Visual Basic', 'Assembly', 'Fortran', 'COBOL',
+  'Pascal', 'Delphi', 'Ada', 'Lisp', 'Scheme', 'Prolog', 'Julia', 'F#', 'Groovy', 'Bash', 'PowerShell', 'VBA',
+
+  // Web Technologies
+  'HTML', 'CSS', 'React', 'Vue.js', 'Angular', 'Node.js', 'Express.js', 'Next.js', 'Nuxt.js', 'Svelte', 'Django', 'Flask', 'Spring Boot', 'Laravel',
+  'Ruby on Rails', 'ASP.NET', 'JSP', 'Servlets', 'Symfony', 'CodeIgniter', 'CakePHP', 'Zend Framework', 'Meteor', 'Ember.js', 'Backbone.js',
+  'jQuery', 'Bootstrap', 'Tailwind CSS', 'Material-UI', 'Ant Design', 'Chakra UI', 'Styled Components', 'Sass', 'Less', 'Webpack', 'Vite',
+  'Parcel', 'Gulp', 'Grunt', 'Babel', 'ESLint', 'Prettier', 'TypeScript', 'Flow', 'CoffeeScript',
+
+  // Databases
+  'MySQL', 'PostgreSQL', 'MongoDB', 'Redis', 'SQLite', 'Oracle', 'SQL Server', 'Firebase', 'DynamoDB', 'Cassandra',
+  'MariaDB', 'CouchDB', 'Couchbase', 'Neo4j', 'ArangoDB', 'Elasticsearch', 'Solr', 'InfluxDB', 'TimescaleDB', 'ClickHouse',
+  'BigQuery', 'Redshift', 'Snowflake', 'Databricks', 'Hive', 'Impala', 'Presto', 'Druid', 'Pinot', 'Kudu',
+
+  // Cloud & DevOps
+  'AWS', 'Azure', 'Google Cloud', 'Docker', 'Kubernetes', 'Jenkins', 'GitLab CI', 'GitHub Actions', 'Terraform', 'Ansible',
+  'Puppet', 'Chef', 'SaltStack', 'CircleCI', 'Travis CI', 'Bitbucket Pipelines', 'Azure DevOps', 'AWS CodePipeline',
+  'Google Cloud Build', 'Helm', 'Istio', 'Linkerd', 'Consul', 'Vault', 'Prometheus', 'Grafana', 'ELK Stack', 'Splunk',
+  'Nagios', 'Zabbix', 'New Relic', 'Datadog', 'AWS Lambda', 'Azure Functions', 'Google Cloud Functions',
+
+  // Tools & Frameworks
+  'Git', 'GitHub', 'GitLab', 'Bitbucket', 'Jira', 'Confluence', 'Slack', 'Figma', 'Adobe XD', 'Sketch', 'Postman', 'Swagger',
+  'Insomnia', 'SoapUI', 'Charles Proxy', 'Wireshark', 'Burp Suite', 'OWASP ZAP', 'SonarQube', 'Snyk', 'Dependabot',
+  'npm', 'yarn', 'pnpm', 'Maven', 'Gradle', 'pip', 'conda', 'Composer', 'Bundler', 'Cargo', 'NuGet',
+
+  // Data Science & ML
+  'TensorFlow', 'PyTorch', 'Scikit-learn', 'Pandas', 'NumPy', 'Jupyter', 'Tableau', 'Power BI', 'Apache Spark', 'Hadoop',
+  'Keras', 'MXNet', 'Caffe', 'Theano', 'Chainer', 'Fast.ai', 'XGBoost', 'LightGBM', 'CatBoost', 'H2O.ai', 'KNIME',
+  'RapidMiner', 'Weka', 'Orange', 'Alteryx', 'SAS', 'SPSS', 'RStudio', 'Matplotlib', 'Seaborn', 'Plotly', 'D3.js',
+  'Bokeh', 'ggplot2', 'Shiny', 'Streamlit', 'Gradio', 'Dash', 'Panel', 'Voila',
+
+  // Mobile Development
+  'React Native', 'Flutter', 'iOS Development', 'Android Development', 'Xamarin', 'Ionic', 'Cordova',
+  'PhoneGap', 'Capacitor', 'NativeScript', 'Expo', 'SwiftUI', 'UIKit', 'Android Jetpack', 'Kotlin Multiplatform',
+  'Unity', 'Unreal Engine', 'Cocos2d-x', 'Corona SDK', 'Appcelerator', 'Framework7', 'Onsen UI',
+
+  // Testing
+  'Jest', 'Mocha', 'Cypress', 'Selenium', 'JUnit', 'TestNG', 'Postman Testing',
+  'Karma', 'Jasmine', 'Chai', 'Enzyme', 'React Testing Library', 'Cucumber', 'SpecFlow', 'Behave', 'Robot Framework',
+  'Appium', 'Detox', 'Calabash', 'EarlGrey', 'XCUITest', 'Espresso', 'UI Automator', 'MonkeyRunner', 'LoadRunner',
+  'JMeter', 'Gatling', 'Locust', 'Artillery', 'k6', 'Newman', 'RestAssured', 'Supertest', 'Axios Mock Adapter',
+
+  // Operating Systems
+  'Linux', 'Windows', 'macOS', 'Ubuntu', 'CentOS', 'Red Hat', 'Debian', 'Fedora', 'Arch Linux', 'Manjaro', 'Kali Linux',
+  'Android', 'iOS', 'Windows Server', 'FreeBSD', 'OpenBSD', 'NetBSD', 'Solaris', 'AIX', 'HP-UX',
+
+  // Networking
+  'TCP/IP', 'HTTP/HTTPS', 'DNS', 'DHCP', 'VPN', 'Firewall', 'Load Balancing', 'CDN', 'Network Security', 'Wireshark',
+  'tcpdump', 'nmap', 'Wireshark', 'Cisco', 'Juniper', 'Palo Alto', 'Fortinet', 'Check Point', 'MikroTik',
+
+  // Security
+  'Cybersecurity', 'Penetration Testing', 'Ethical Hacking', 'OWASP', 'NIST', 'ISO 27001', 'GDPR', 'HIPAA', 'PCI DSS',
+  'SIEM', 'IDS/IPS', 'Endpoint Protection', 'Zero Trust', 'OAuth', 'JWT', 'SAML', 'Kerberos', 'SSL/TLS', 'PKI',
+  'Cryptography', 'Hashing', 'Encryption', 'Digital Signatures', 'Blockchain Security', 'IoT Security',
+
+  // Version Control
+  'Git', 'SVN', 'Mercurial', 'Perforce', 'CVS', 'Git Flow', 'GitHub Flow', 'Trunk Based Development', 'Semantic Versioning',
+
+  // Containerization & Orchestration
+  'Docker', 'Podman', 'LXC', 'Kubernetes', 'Docker Swarm', 'Nomad', 'Mesos', 'OpenShift', 'Rancher', 'Amazon ECS',
+  'Azure Container Instances', 'Google Kubernetes Engine', 'Helm', 'Kustomize', 'Docker Compose', 'Podman Compose',
+
+  // Monitoring & Observability
+  'Prometheus', 'Grafana', 'ELK Stack', 'Splunk', 'Datadog', 'New Relic', 'Dynatrace', 'AppDynamics', 'SolarWinds',
+  'Nagios', 'Zabbix', 'Icinga', 'Sensu', 'Telegraf', 'InfluxDB', 'Jaeger', 'Zipkin', 'OpenTelemetry', 'APM',
+
+  // APIs & Microservices
+  'REST APIs', 'GraphQL', 'gRPC', 'SOAP', 'WebSockets', 'WebRTC', 'JSON-RPC', 'XML-RPC', 'OpenAPI', 'Swagger',
+  'Postman', 'Insomnia', 'Microservices', 'Service Mesh', 'API Gateway', 'Kong', 'Apigee', 'AWS API Gateway',
+  'Azure API Management', 'Google API Gateway', 'Event-Driven Architecture', 'CQRS', 'Saga Pattern',
+
+  // Blockchain & Web3
+  'Ethereum', 'Solidity', 'Web3.js', 'Ethers.js', 'Truffle', 'Hardhat', 'Ganache', 'MetaMask', 'IPFS', 'Filecoin',
+  'Bitcoin', 'Hyperledger', 'Corda', 'Quorum', 'Chainlink', 'Polkadot', 'Cosmos', 'Avalanche', 'Solana', 'Cardano',
+  'NFT', 'DeFi', 'Smart Contracts', 'Cryptocurrency', 'Blockchain Development', 'DApp Development',
+
+  // IoT & Embedded Systems
+  'Arduino', 'Raspberry Pi', 'ESP32', 'ESP8266', 'STM32', 'AVR', 'PIC', 'ARM Cortex', 'FPGA', 'Verilog', 'VHDL',
+  'MQTT', 'CoAP', 'LoRa', 'Zigbee', 'Bluetooth', 'WiFi', 'Cellular IoT', 'Edge Computing', 'Real-time Systems',
+  'Embedded Linux', 'FreeRTOS', 'Zephyr', 'Contiki', 'RIOT OS', 'mbed OS',
+
+  // Game Development
+  'Unity', 'Unreal Engine', 'Godot', 'GameMaker', 'Construct', 'Phaser', 'Babylon.js', 'Three.js', 'Cocos2d-x',
+  'SFML', 'SDL', 'OpenGL', 'DirectX', 'Vulkan', 'Blender', 'Maya', '3ds Max', 'ZBrush', 'Substance Painter',
+
+  // Big Data & Analytics
+  'Hadoop', 'Spark', 'Kafka', 'Storm', 'Flink', 'Beam', 'Samza', 'Kinesis', 'Pub/Sub', 'Event Hubs', 'BigQuery',
+  'Redshift', 'Snowflake', 'Databricks', 'Presto', 'Trino', 'Druid', 'Pinot', 'ClickHouse', 'TimescaleDB',
+  'Apache Airflow', 'Prefect', 'Dagster', 'Luigi', 'Azkaban', 'Oozie', 'Sqoop', 'Flume', 'NiFi',
+
+  // AI & Machine Learning
+  'Machine Learning', 'Deep Learning', 'Natural Language Processing', 'Computer Vision', 'Reinforcement Learning',
+  'Neural Networks', 'Convolutional Neural Networks', 'Recurrent Neural Networks', 'Transformers', 'BERT', 'GPT',
+  'OpenAI API', 'Hugging Face', 'spaCy', 'NLTK', 'OpenCV', 'Pillow', 'Scikit-image', 'TensorFlow Serving',
+  'TorchServe', 'MLflow', 'Kubeflow', 'SageMaker', 'Vertex AI', 'Azure ML', 'AutoML',
+
+  // Soft Skills
+  'Project Management', 'Agile', 'Scrum', 'Kanban', 'Leadership', 'Team Collaboration', 'Communication', 'Problem Solving',
+  'Critical Thinking', 'Time Management', 'Adaptability', 'Creativity', 'Emotional Intelligence', 'Conflict Resolution',
+  'Mentoring', 'Coaching', 'Public Speaking', 'Presentation Skills', 'Negotiation', 'Stakeholder Management',
+
+  // Design
+  'UI/UX Design', 'Graphic Design', 'Adobe Creative Suite', 'Prototyping', 'User Research', 'Wireframing',
+  'Figma', 'Sketch', 'Adobe XD', 'InVision', 'Framer', 'Principle', 'After Effects', 'Premiere Pro', 'Photoshop',
+  'Illustrator', 'InDesign', 'Lightroom', 'Blender', 'Cinema 4D', 'User Experience Research', 'Usability Testing',
+  'Design Systems', 'Accessibility', 'Responsive Design', 'Mobile Design', 'Web Design', 'Print Design',
+
+  // Other Technical Skills
+  'REST APIs', 'GraphQL', 'Microservices', 'Serverless', 'Blockchain', 'IoT', 'Cybersecurity', 'Network Administration',
+  'System Administration', 'Database Administration', 'Performance Optimization', 'Code Review', 'Technical Writing',
+  'Documentation', 'Requirements Analysis', 'System Design', 'Architecture Design', 'Technical Leadership',
+  'DevOps', 'Site Reliability Engineering', 'Platform Engineering', 'Infrastructure as Code', 'Configuration Management',
+
+  // Additional Programming Languages
+  'Zig', 'Nim', 'Crystal', 'V', 'Odin',
+
+  // Additional Web Technologies
+  'SolidJS', 'Qwik', 'Astro', 'Remix', 'SvelteKit', 'Fresh',
+
+  // Additional Databases
+  'CockroachDB', 'TiDB', 'YugabyteDB', 'PlanetScale', 'Neon', 'Supabase',
+
+  // Additional Cloud & DevOps
+  'Vercel', 'Netlify', 'Fly.io', 'Railway', 'Render',
+
+  // Additional Tools & Frameworks
+  'Biome', 'Turborepo', 'Nx', 'Lerna',
+
+  // Additional Testing
+  'Vitest', 'Playwright', 'Puppeteer',
+
+  // Additional Mobile Development
+  'Expo Router',
+
+  // Additional Data Science & ML
+  'Polars', 'Dask', 'dbt',
+
+  // Additional Operating Systems
+  'WSL2',
+
+  // Additional Networking
+  'Cloudflare', 'Fastly',
+
+  // Additional Security
+  'OAuth 2.0', 'OpenID Connect', 'WireGuard', 'OpenVPN',
+
+  // Additional Version Control
+  'GitOps',
+
+  // Additional Containerization & Orchestration
+  'Podman', 'Buildah',
+
+  // Additional Monitoring & Observability
+  'Tempo', 'Cortex', 'Loki',
+
+  // Additional APIs & Microservices
+  'tRPC', 'GraphQL Yoga', 'Hasura',
+
+  // Additional Blockchain & Web3
+  'Foundry', 'The Graph', 'Arweave'
+];
+
 const BuildResume: React.FC = () => {
   const { toast } = useToast();
+  const { incrementResumeCreated, user } = useAuth();
   const [selectedTemplate, setSelectedTemplate] = useState('professional');
   const [newSkill, setNewSkill] = useState('');
   const [newHobby, setNewHobby] = useState('');
+  const [filteredSkills, setFilteredSkills] = useState<string[]>([]);
+  const [showSkillSuggestions, setShowSkillSuggestions] = useState(false);
   const [resumeData, setResumeData] = useState<ResumeData>({
     personal: {
       fullName: 'John Doe',
@@ -191,6 +361,35 @@ const BuildResume: React.FC = () => {
     }));
   };
 
+  const handleSkillInputChange = (value: string) => {
+    setNewSkill(value);
+    if (value.trim() || showSkillSuggestions) {
+      const filtered = SKILLS_DATABASE.filter(skill =>
+        skill.toLowerCase().includes(value.toLowerCase()) &&
+        !resumeData.skills.includes(skill)
+      ).slice(0, 8); // Limit to 8 suggestions
+      setFilteredSkills(filtered);
+      setShowSkillSuggestions(true);
+    } else {
+      setFilteredSkills([]);
+      setShowSkillSuggestions(false);
+    }
+  };
+
+  const handleSkillInputFocus = () => {
+    const filtered = SKILLS_DATABASE.filter(skill =>
+      !resumeData.skills.includes(skill)
+    ).slice(0, 8); // Show first 8 available skills
+    setFilteredSkills(filtered);
+    setShowSkillSuggestions(true);
+  };
+
+  const selectSkill = (skill: string) => {
+    setNewSkill(skill);
+    setFilteredSkills([]);
+    setShowSkillSuggestions(false);
+  };
+
   const addSkill = () => {
     if (newSkill.trim() && !resumeData.skills.includes(newSkill.trim())) {
       setResumeData(prev => ({
@@ -198,6 +397,8 @@ const BuildResume: React.FC = () => {
         skills: [...prev.skills, newSkill.trim()]
       }));
       setNewSkill('');
+      setFilteredSkills([]);
+      setShowSkillSuggestions(false);
     }
   };
 
@@ -254,6 +455,7 @@ const BuildResume: React.FC = () => {
       // Restore original overflow
       element.style.overflow = originalOverflow;
 
+      incrementResumeCreated(user?.email || '');
       toast({
         title: "Download Complete",
         description: "Your resume PDF has been downloaded successfully.",
@@ -418,7 +620,7 @@ const BuildResume: React.FC = () => {
       });
 
       const buffer = await Packer.toBuffer(doc);
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      const blob = new Blob([buffer.buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -428,6 +630,7 @@ const BuildResume: React.FC = () => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
+      incrementResumeCreated(user?.email || '');
       toast({
         title: "Download Complete",
         description: "Your resume DOCX has been downloaded successfully.",
@@ -797,7 +1000,7 @@ const BuildResume: React.FC = () => {
                         className="px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium flex items-center gap-2"
                       >
                         {skill}
-                        <button 
+                        <button
                           onClick={() => removeSkill(skill)}
                           className="hover:text-destructive transition-colors"
                         >
@@ -806,14 +1009,30 @@ const BuildResume: React.FC = () => {
                       </span>
                     ))}
                   </div>
-                  <div className="flex gap-2">
-                    <Input 
-                      placeholder="Add a skill..." 
-                      value={newSkill}
-                      onChange={(e) => setNewSkill(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && addSkill()}
-                    />
-                    <Button variant="outline" onClick={addSkill}>Add</Button>
+                  <div className="relative">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Add a skill..."
+                        value={newSkill}
+                        onChange={(e) => handleSkillInputChange(e.target.value)}
+                        onFocus={handleSkillInputFocus}
+                        onKeyDown={(e) => e.key === 'Enter' && addSkill()}
+                      />
+                      <Button variant="outline" onClick={addSkill}>Add</Button>
+                    </div>
+                    {showSkillSuggestions && filteredSkills.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
+                        {filteredSkills.map((skill, index) => (
+                          <button
+                            key={index}
+                            onClick={() => selectSkill(skill)}
+                            className="w-full text-left px-3 py-2 hover:bg-muted transition-colors text-sm"
+                          >
+                            {skill}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
 

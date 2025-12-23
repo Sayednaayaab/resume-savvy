@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -24,13 +25,16 @@ import {
 import { useToast } from '@/hooks/use-toast';
 
 const UserInfo: React.FC = () => {
-  const { user, sessions } = useAuth();
+  const { user, sessions, userStats, getUserStats } = useAuth();
   const { toast } = useToast();
 
   // Redirect non-admin users
   if (!user?.isAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
+
+  // Filter out admin logins
+  const filteredSessions = sessions ? sessions.filter(session => !session.user.isAdmin) : [];
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('en-US', {
@@ -52,6 +56,27 @@ const UserInfo: React.FC = () => {
     return `${hours}h ${remainingMins}m`;
   };
 
+  // Function to calculate total duration per user
+  const calculateTotalDuration = (email: string) => {
+    const userSessions = filteredSessions.filter(s => s.user.email === email && s.logoutTime);
+    const totalMinutes = userSessions.reduce((sum, s) => sum + (s.logoutTime!.getTime() - s.loginTime.getTime()) / 60000, 0);
+    if (totalMinutes < 60) return `${Math.round(totalMinutes)} mins`;
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = Math.round(totalMinutes % 60);
+    return `${hours}h ${mins}m`;
+  };
+
+  // Get real user data with resume counts
+  const userSessions = filteredSessions.map((session) => {
+    const stats = getUserStats(session.user.email);
+    return {
+      ...session.user,
+      resumeCount: stats.resumesCreated,
+      analyzedCount: stats.resumesAnalyzed,
+      totalDuration: calculateTotalDuration(session.user.email)
+    };
+  });
+
   const handleExport = () => {
     toast({
       title: "Exporting Data",
@@ -66,45 +91,59 @@ const UserInfo: React.FC = () => {
     });
   };
 
-  // Mock stats
-  const stats = [
-    { 
-      label: 'Total Users', 
-      value: '156', 
-      change: '+12 this week',
-      icon: Users, 
-      color: 'bg-primary/10 text-primary' 
-    },
-    { 
-      label: 'Active Sessions', 
-      value: '23', 
-      change: 'Currently online',
-      icon: UserCheck, 
-      color: 'bg-success/10 text-success' 
-    },
-    { 
-      label: 'Avg. Session', 
-      value: '34 min', 
-      change: '+5 min vs last week',
-      icon: Clock, 
-      color: 'bg-accent/10 text-accent' 
-    },
-    { 
-      label: 'Resumes Created', 
-      value: '1,284', 
-      change: '+89 today',
-      icon: FileText, 
-      color: 'bg-warning/10 text-warning' 
-    },
-  ];
+  // Calculate stats from filtered sessions
+  const totalUsers = new Set(filteredSessions.map(s => s.user.email)).size;
+  const activeSessions = filteredSessions.filter(s => !s.logoutTime).length;
+  const completedSessions = filteredSessions.filter(s => s.logoutTime);
+  const avgSessionMinutes = completedSessions.length > 0
+    ? Math.round(completedSessions.reduce((sum, s) => sum + (s.logoutTime!.getTime() - s.loginTime.getTime()) / 60000, 0) / completedSessions.length)
+    : 0;
 
-  // Mock user data with resume counts
-  const userSessions = [
-    { ...sessions[0]?.user, resumeCount: 3 },
-    { ...sessions[1]?.user, resumeCount: 5 },
-    { ...sessions[2]?.user, resumeCount: 2 },
-    { ...sessions[3]?.user, resumeCount: 1 },
-    { email: 'alex.chen@example.com', name: 'Alex Chen', resumeCount: 7, loginTime: new Date('2025-12-17T10:15:00') },
+  // Calculate totals only for non-admin users (those with sessions)
+  const nonAdminEmails = new Set(filteredSessions.map(s => s.user.email));
+  const totalResumesCreated = userStats
+    .filter(stat => nonAdminEmails.has(stat.email))
+    .reduce((sum, stat) => sum + stat.resumesCreated, 0);
+  const totalResumesAnalyzed = userStats
+    .filter(stat => nonAdminEmails.has(stat.email))
+    .reduce((sum, stat) => sum + stat.resumesAnalyzed, 0);
+
+  const stats = [
+    {
+      label: 'Total Users',
+      value: totalUsers.toString(),
+      change: 'Active users',
+      icon: Users,
+      color: 'bg-primary/10 text-primary'
+    },
+    {
+      label: 'Active Sessions',
+      value: activeSessions.toString(),
+      change: 'Currently online',
+      icon: UserCheck,
+      color: 'bg-success/10 text-success'
+    },
+    {
+      label: 'Avg. Session',
+      value: avgSessionMinutes > 0 ? `${avgSessionMinutes} min` : '0 min',
+      change: 'Average duration',
+      icon: Clock,
+      color: 'bg-accent/10 text-accent'
+    },
+    {
+      label: 'Resumes Created',
+      value: totalResumesCreated.toString(),
+      change: 'Total created',
+      icon: FileText,
+      color: 'bg-warning/10 text-warning'
+    },
+    {
+      label: 'Resumes Analyzed',
+      value: totalResumesAnalyzed.toString(),
+      change: 'Total analyzed',
+      icon: Activity,
+      color: 'bg-info/10 text-info'
+    },
   ];
 
   return (
@@ -183,17 +222,18 @@ const UserInfo: React.FC = () => {
                   <TableHead className="font-semibold">Logout Time</TableHead>
                   <TableHead className="font-semibold">Duration</TableHead>
                   <TableHead className="font-semibold text-right">Resumes Created</TableHead>
+                  <TableHead className="font-semibold text-right">Resumes Analyzed</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sessions.map((session, index) => (
+                {filteredSessions.map((session, index) => (
                   <TableRow key={index} className="hover:bg-muted/30 transition-colors">
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
-                          {session.user.email[0].toUpperCase()}
+                          {(session.user.email || 'U')[0].toUpperCase()}
                         </div>
-                        {session.user.email}
+                        {session.user.email || 'Unknown'}
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
@@ -209,11 +249,14 @@ const UserInfo: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <span className="px-2 py-1 rounded-md bg-muted text-sm">
-                        {calculateDuration(session.loginTime, session.logoutTime)}
+                        {calculateTotalDuration(session.user.email)}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <span className="font-semibold">{userSessions[index]?.resumeCount || 0}</span>
+                      <span className="font-semibold">{userSessions.find(u => u.email === session.user.email)?.resumeCount || 0}</span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className="font-semibold">{userSessions.find(u => u.email === session.user.email)?.analyzedCount || 0}</span>
                     </TableCell>
                   </TableRow>
                 ))}

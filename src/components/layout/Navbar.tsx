@@ -60,13 +60,15 @@ const Navbar: React.FC = () => {
             {user && (
               <div className="hidden sm:flex items-center gap-3">
                 <div className="flex items-center gap-2">
-                  {user.avatar && (
-                    <img
-                      src={user.avatar}
-                      alt={user.name}
-                      className="w-8 h-8 rounded-full"
-                    />
-                  )}
+                  <img
+                    src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=1E3A8A&color=fff`}
+                    alt={user.name}
+                    className="w-8 h-8 rounded-full"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=1E3A8A&color=fff`;
+                    }}
+                  />
                   <div className="text-sm">
                     <p className="font-medium">{user.name}</p>
                     {user.isAdmin && (

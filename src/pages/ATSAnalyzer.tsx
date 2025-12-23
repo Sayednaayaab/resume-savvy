@@ -19,6 +19,7 @@ import {
   Lightbulb
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AnalysisResult {
   score: number;
@@ -43,6 +44,7 @@ const actionVerbs = ['Achieved', 'Delivered', 'Implemented', 'Led', 'Managed', '
 
 const ATSAnalyzer: React.FC = () => {
   const { toast } = useToast();
+  const { incrementResumeAnalyzed, user } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -299,6 +301,7 @@ const ATSAnalyzer: React.FC = () => {
       
       setResult(analysisResult);
       
+      incrementResumeAnalyzed(user?.email || '');
       toast({
         title: "Analysis Complete",
         description: `Your resume scored ${analysisResult.score}%!`,
