@@ -2,15 +2,15 @@ import React, { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { 
-  Upload, 
-  FileText, 
-  CheckCircle, 
-  AlertCircle, 
+
+import {
+  Upload,
+  FileText,
+  CheckCircle,
+  AlertCircle,
   XCircle,
   Sparkles,
   ArrowRight,
-  Target,
   TrendingUp,
   Zap,
   RefreshCw,
@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import AIChatBot from '@/components/AIChatBot';
 
 interface AnalysisResult {
   score: number;
@@ -50,6 +51,8 @@ const ATSAnalyzer: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [resumeText, setResumeText] = useState<string>('');
+
+
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -85,6 +88,8 @@ const ATSAnalyzer: React.FC = () => {
     }
   };
 
+
+
   // Extract text from file
   const extractTextFromFile = async (file: File): Promise<string> => {
     return new Promise((resolve) => {
@@ -97,6 +102,8 @@ const ATSAnalyzer: React.FC = () => {
     });
   };
 
+
+
   // Analyze the resume content
   const analyzeResumeContent = (text: string): AnalysisResult => {
     const lowerText = text.toLowerCase();
@@ -107,7 +114,7 @@ const ATSAnalyzer: React.FC = () => {
     const allKeywords = [...industryKeywords.tech, ...industryKeywords.management, ...industryKeywords.general];
     const keywordResults: AnalysisResult['keywords'] = [];
     let keywordScore = 0;
-    
+
     allKeywords.slice(0, 20).forEach((keyword, index) => {
       const found = lowerText.includes(keyword.toLowerCase());
       const importance = index < 7 ? 'critical' : index < 14 ? 'important' : 'nice-to-have';
@@ -218,6 +225,9 @@ const ATSAnalyzer: React.FC = () => {
     totalScore += contentScore;
     maxScore += 10;
 
+    // Ensure total score doesn't exceed max score to keep final percentage at 100 max
+    totalScore = Math.min(totalScore, maxScore);
+
     // Calculate final percentage
     const finalScore = Math.round((totalScore / maxScore) * 100);
 
@@ -285,22 +295,22 @@ const ATSAnalyzer: React.FC = () => {
 
   const analyzeResume = async () => {
     if (!file) return;
-    
+
     setIsAnalyzing(true);
-    
+
     try {
-      // Extract text from file
+      // Extract text from resume file
       const text = await extractTextFromFile(file);
       setResumeText(text);
-      
+
       // Simulate processing time for UX
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
+
       // Analyze the content
       const analysisResult = analyzeResumeContent(text);
-      
+
       setResult(analysisResult);
-      
+
       incrementResumeAnalyzed(user?.email || '');
       toast({
         title: "Analysis Complete",
@@ -439,6 +449,8 @@ const ATSAnalyzer: React.FC = () => {
               </Button>
             </CardContent>
           </Card>
+
+
 
           {/* What We Analyze Card */}
           <Card className="border-0 shadow-card bg-primary/5">
@@ -607,6 +619,7 @@ const ATSAnalyzer: React.FC = () => {
                   </p>
                 </CardContent>
               </Card>
+
             </>
           ) : (
             <Card className="border-0 shadow-card">
@@ -623,6 +636,9 @@ const ATSAnalyzer: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* AI Chat Bot */}
+      <AIChatBot analysisResult={result} resumeText={resumeText} />
     </div>
   );
 };

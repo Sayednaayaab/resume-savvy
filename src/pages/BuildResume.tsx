@@ -30,6 +30,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import html2pdf from 'html2pdf.js';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
+import AIChatBot from '@/components/AIChatBot';
 
 interface Project {
   name: string;
@@ -1411,6 +1412,9 @@ const BuildResume = () => {
           </Card>
         </div>
       </div>
+
+      {/* AI Chat Bot */}
+      <AIChatBot analysisResult={null} resumeText="" />
     </div>
   );
 };
