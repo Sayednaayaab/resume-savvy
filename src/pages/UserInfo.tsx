@@ -25,7 +25,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 
 const UserInfo: React.FC = () => {
-  const { user, sessions, userStats, getUserStats } = useAuth();
+  const { user, sessions, userStats, getUserStats, clearAllData } = useAuth();
   const { toast } = useToast();
 
   // Redirect non-admin users
@@ -35,6 +35,39 @@ const UserInfo: React.FC = () => {
 
   // Filter out admin logins
   const filteredSessions = sessions ? sessions.filter(session => !session.user.isAdmin) : [];
+
+  // Create unique users with aggregated session data
+  const userMap = new Map();
+  filteredSessions.forEach(session => {
+    const email = session.user.email;
+    if (!userMap.has(email)) {
+      userMap.set(email, {
+        user: session.user,
+        sessions: []
+      });
+    }
+    userMap.get(email).sessions.push(session);
+  });
+
+  const uniqueUsers = Array.from(userMap.values()).map(({user, sessions}) => {
+    const loginTimes = sessions.map(s => s.loginTime);
+    const logoutTimes = sessions.map(s => s.logoutTime).filter(Boolean);
+    const earliestLogin = new Date(Math.min(...loginTimes.map(d => d.getTime())));
+    const latestLogout = logoutTimes.length > 0 ? new Date(Math.max(...logoutTimes.map(d => d.getTime()))) : null;
+    const isActive = sessions.some(s => !s.logoutTime);
+    const totalDuration = sessions.filter(s => s.logoutTime).reduce((sum, s) => sum + (s.logoutTime!.getTime() - s.loginTime.getTime()), 0);
+    const totalMinutes = totalDuration / 60000;
+    const formattedDuration = totalMinutes < 60 ? `${Math.round(totalMinutes)} mins` : `${Math.floor(totalMinutes / 60)}h ${Math.round(totalMinutes % 60)}m`;
+    const stats = getUserStats(user.id);
+    return {
+      ...user,
+      loginTime: earliestLogin,
+      logoutTime: isActive ? null : latestLogout,
+      duration: formattedDuration,
+      resumeCount: stats.resumesCreated,
+      analyzedCount: stats.resumesAnalyzed
+    };
+  });
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('en-US', {
@@ -68,7 +101,7 @@ const UserInfo: React.FC = () => {
 
   // Get real user data with resume counts
   const userSessions = filteredSessions.map((session) => {
-    const stats = getUserStats(session.user.email);
+    const stats = getUserStats(session.user.id);
     return {
       ...session.user,
       resumeCount: stats.resumesCreated,
@@ -78,16 +111,63 @@ const UserInfo: React.FC = () => {
   });
 
   const handleExport = () => {
-    toast({
-      title: "Exporting Data",
-      description: "Session data is being exported to CSV.",
-    });
+    try {
+      // Prepare CSV headers
+      const headers = ['User Email', 'Login Time', 'Logout Time', 'Duration', 'Resumes Created', 'Resumes Analyzed'];
+
+      // Prepare CSV data
+      const csvData = uniqueUsers.map(user => [
+        user.email || 'Unknown',
+        formatDate(user.loginTime),
+        user.logoutTime ? formatDate(user.logoutTime) : 'Active',
+        user.duration,
+        user.resumeCount.toString(),
+        user.analyzedCount.toString()
+      ]);
+
+      // Combine headers and data
+      const csvContent = [headers, ...csvData]
+        .map(row => row.map(field => `"${field}"`).join(','))
+        .join('\n');
+
+      // Create and download the CSV file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+
+      link.setAttribute('href', url);
+      link.setAttribute('download', `user-analytics-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Export Successful",
+        description: "User analytics data has been exported to CSV.",
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "An error occurred while exporting the data.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleRefresh = () => {
     toast({
       title: "Data Refreshed",
       description: "User session data has been updated.",
+    });
+  };
+
+  const handleClearAllData = () => {
+    clearAllData();
+    toast({
+      title: "All Data Cleared",
+      description: "All login data has been reset. Fresh recording will start now.",
     });
   };
 
@@ -168,6 +248,10 @@ const UserInfo: React.FC = () => {
             <Download className="w-4 h-4 mr-2" />
             Export CSV
           </Button>
+          <Button variant="destructive" onClick={handleClearAllData}>
+            <Activity className="w-4 h-4 mr-2" />
+            Clear All Data
+          </Button>
         </div>
       </div>
 
@@ -226,21 +310,21 @@ const UserInfo: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredSessions.map((session, index) => (
+                {uniqueUsers.map((user, index) => (
                   <TableRow key={index} className="hover:bg-muted/30 transition-colors">
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
-                          {(session.user.email || 'U')[0].toUpperCase()}
+                          {(user.email || 'U')[0].toUpperCase()}
                         </div>
-                        {session.user.email || 'Unknown'}
+                        {user.email || 'Unknown'}
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatDate(session.loginTime)}
+                      {formatDate(user.loginTime)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {session.logoutTime ? formatDate(session.logoutTime) : (
+                      {user.logoutTime ? formatDate(user.logoutTime) : (
                         <span className="inline-flex items-center gap-1 text-success">
                           <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
                           Active
@@ -249,14 +333,14 @@ const UserInfo: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <span className="px-2 py-1 rounded-md bg-muted text-sm">
-                        {calculateTotalDuration(session.user.email)}
+                        {user.duration}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <span className="font-semibold">{userSessions.find(u => u.email === session.user.email)?.resumeCount || 0}</span>
+                      <span className="font-semibold">{user.resumeCount}</span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <span className="font-semibold">{userSessions.find(u => u.email === session.user.email)?.analyzedCount || 0}</span>
+                      <span className="font-semibold">{user.analyzedCount}</span>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -1,12 +1,14 @@
-# AI Chat Bot Implementation Tasks
+# TODO: Modify User Info to Track Per-Session Stats
 
-- [x] Create AIChatBot.tsx component with chat interface (message history, input field)
-- [x] Implement AI response logic based on analysis results (score, strengths, improvements)
-- [x] Add Q&A functionality for general resume building questions
-- [x] Integrate AIChatBot into ATSAnalyzer.tsx as a new section after analysis
-- [x] Test chat bot integration with resume analysis results
-- [x] Verify styling and responsiveness
-- [x] Enhance chatbot responses for more conversational interactions (greetings, skills, education, projects, etc.)
-- [x] Make responses more personalized based on resume analysis data
-- [x] Make chatbot respond to any kind of questions like ChatGPT while maintaining resume focus
-- [x] Add favicon (file logo) in browser tab
+## Tasks
+- [ ] Modify AuthContext.tsx to change userStats structure to per-session
+- [ ] Update incrementResumeCreated and incrementResumeAnalyzed functions to use sessionId
+- [ ] Update BuildResume.tsx to pass current sessionId to incrementResumeCreated
+- [ ] Update ATSAnalyzer.tsx to pass current sessionId to incrementResumeAnalyzed
+- [ ] Update UserInfo.tsx to display per-session stats instead of aggregated per-email
+- [ ] Test the changes to ensure separate session tracking works
+
+## Notes
+- Current userStats is global per email, need to make it per session
+- Sessions already have unique IDs, can use session.user.id or create session-specific stats
+- Need to ensure backward compatibility with existing data

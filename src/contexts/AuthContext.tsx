@@ -29,6 +29,7 @@ interface User {
 }
 
 interface UserStats {
+  sessionId: string;
   email: string;
   resumesCreated: number;
   resumesAnalyzed: number;
@@ -50,9 +51,10 @@ interface AuthContextType {
   logout: () => void;
   sessions: Session[];
   userStats: UserStats[];
-  incrementResumeCreated: (email: string) => void;
-  incrementResumeAnalyzed: (email: string) => void;
-  getUserStats: (email: string) => UserStats;
+  incrementResumeCreated: (sessionId: string, email: string) => void;
+  incrementResumeAnalyzed: (sessionId: string, email: string) => void;
+  getUserStats: (sessionId: string) => UserStats;
+  clearAllData: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -170,11 +172,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } else {
       // Initialize with sample data for demo purposes
       const sampleStats: UserStats[] = [
-        { email: 'john.doe@example.com', resumesCreated: 3, resumesAnalyzed: 2 },
-        { email: 'jane.smith@example.com', resumesCreated: 5, resumesAnalyzed: 4 },
-        { email: 'mike.johnson@example.com', resumesCreated: 2, resumesAnalyzed: 1 },
-        { email: 'sarah.wilson@example.com', resumesCreated: 7, resumesAnalyzed: 6 },
-        { email: 'admin@resume.com', resumesCreated: 0, resumesAnalyzed: 0 },
+        { sessionId: 'sample_1', email: 'john.doe@example.com', resumesCreated: 3, resumesAnalyzed: 2 },
+        { sessionId: 'sample_2', email: 'jane.smith@example.com', resumesCreated: 5, resumesAnalyzed: 4 },
+        { sessionId: 'sample_3', email: 'mike.johnson@example.com', resumesCreated: 2, resumesAnalyzed: 1 },
+        { sessionId: 'sample_4', email: 'sarah.wilson@example.com', resumesCreated: 7, resumesAnalyzed: 6 },
+        { sessionId: 'admin_sample', email: 'admin@resume.com', resumesCreated: 0, resumesAnalyzed: 0 },
       ];
       // Save sample data to localStorage
       localStorage.setItem('resumeBuilder_userStats', JSON.stringify(sampleStats));
@@ -369,15 +371,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('resumeBuilder_user');
   };
 
-  const incrementResumeCreated = (email: string) => {
+  const incrementResumeCreated = (sessionId: string, email: string) => {
     setUserStats(prev => {
       const updatedStats = prev.map(stat =>
-        stat.email === email
+        stat.sessionId === sessionId
           ? { ...stat, resumesCreated: stat.resumesCreated + 1 }
           : stat
       );
-      if (!prev.find(stat => stat.email === email)) {
-        updatedStats.push({ email, resumesCreated: 1, resumesAnalyzed: 0 });
+      if (!prev.find(stat => stat.sessionId === sessionId)) {
+        updatedStats.push({ sessionId, email, resumesCreated: 1, resumesAnalyzed: 0 });
       }
       // Save to localStorage
       localStorage.setItem('resumeBuilder_userStats', JSON.stringify(updatedStats));
@@ -385,15 +387,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
   };
 
-  const incrementResumeAnalyzed = (email: string) => {
+  const incrementResumeAnalyzed = (sessionId: string, email: string) => {
     setUserStats(prev => {
       const updatedStats = prev.map(stat =>
-        stat.email === email
+        stat.sessionId === sessionId
           ? { ...stat, resumesAnalyzed: stat.resumesAnalyzed + 1 }
           : stat
       );
-      if (!prev.find(stat => stat.email === email)) {
-        updatedStats.push({ email, resumesCreated: 0, resumesAnalyzed: 1 });
+      if (!prev.find(stat => stat.sessionId === sessionId)) {
+        updatedStats.push({ sessionId, email, resumesCreated: 0, resumesAnalyzed: 1 });
       }
       // Save to localStorage
       localStorage.setItem('resumeBuilder_userStats', JSON.stringify(updatedStats));
@@ -401,13 +403,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
   };
 
-  const getUserStats = (email: string): UserStats => {
-    const existing = userStats.find(stat => stat.email === email);
-    return existing || { email, resumesCreated: 0, resumesAnalyzed: 0 };
+  const getUserStats = (sessionId: string): UserStats => {
+    const existing = userStats.find(stat => stat.sessionId === sessionId);
+    return existing || { sessionId, email: '', resumesCreated: 0, resumesAnalyzed: 0 };
+  };
+
+  const clearAllData = () => {
+    // Clear all stored data from localStorage
+    localStorage.removeItem('resumeBuilder_sessions');
+    localStorage.removeItem('resumeBuilder_userStats');
+    localStorage.removeItem('resumeBuilder_user');
+    localStorage.removeItem('resumeBuilder_signup_users');
+
+    // Reset state to empty
+    setSessions([]);
+    setUserStats([]);
+    setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, loginWithGoogle, loginWithEmail, signUpWithEmail, loginAsAdmin, logout, sessions, userStats, incrementResumeCreated, incrementResumeAnalyzed, getUserStats }}>
+    <AuthContext.Provider value={{ user, isLoading, loginWithGoogle, loginWithEmail, signUpWithEmail, loginAsAdmin, logout, sessions, userStats, incrementResumeCreated, incrementResumeAnalyzed, getUserStats, clearAllData }}>
       {children}
     </AuthContext.Provider>
   );

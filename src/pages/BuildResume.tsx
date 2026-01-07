@@ -460,7 +460,7 @@ const BuildResume = () => {
       element.style.height = originalHeight;
       element.style.overflow = originalOverflow;
 
-      incrementResumeCreated(user?.email || '');
+      incrementResumeCreated(user?.id || '', user?.email || '');
       toast({
         title: "Download Complete",
         description: "Your resume PDF has been downloaded successfully.",
@@ -638,7 +638,7 @@ const BuildResume = () => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      incrementResumeCreated(user?.email || '');
+      incrementResumeCreated(user?.id || '', user?.email || '');
       toast({
         title: "Download Complete",
         description: "Your resume DOCX has been downloaded successfully.",

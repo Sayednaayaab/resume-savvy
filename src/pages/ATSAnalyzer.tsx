@@ -311,7 +311,7 @@ const ATSAnalyzer: React.FC = () => {
 
       setResult(analysisResult);
 
-      incrementResumeAnalyzed(user?.email || '');
+      incrementResumeAnalyzed(user?.id || '', user?.email || '');
       toast({
         title: "Analysis Complete",
         description: `Your resume scored ${analysisResult.score}%!`,
