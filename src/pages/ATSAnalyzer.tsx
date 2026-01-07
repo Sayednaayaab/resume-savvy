@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Textarea } from '@/components/ui/textarea';
 
 import {
   Upload,
@@ -16,11 +17,18 @@ import {
   RefreshCw,
   BarChart3,
   FileSearch,
-  Lightbulb
+  Lightbulb,
+  Target,
+  Edit3
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import AIChatBot from '@/components/AIChatBot';
+import * as pdfjsLib from 'pdfjs-dist';
+import mammoth from 'mammoth';
+
+// Set PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 interface AnalysisResult {
   score: number;
@@ -28,6 +36,7 @@ interface AnalysisResult {
   strengths: { title: string; description: string }[];
   improvements: { title: string; description: string; priority: 'high' | 'medium' | 'low' }[];
   keywords: { word: string; found: boolean; importance: 'critical' | 'important' | 'nice-to-have' }[];
+  jobDescriptionKeywords?: { word: string; found: boolean; importance: 'critical' | 'important' | 'nice-to-have' }[];
   sectionScores: { section: string; score: number; feedback: string }[];
   formatAnalysis: { aspect: string; status: 'good' | 'warning' | 'error'; message: string }[];
 }
@@ -43,7 +52,13 @@ const industryKeywords = {
 // Action verbs that ATS systems look for
 const actionVerbs = ['Achieved', 'Delivered', 'Implemented', 'Led', 'Managed', 'Developed', 'Created', 'Improved', 'Increased', 'Reduced', 'Optimized', 'Launched', 'Designed', 'Built', 'Analyzed', 'Streamlined', 'Spearheaded', 'Orchestrated', 'Pioneered', 'Transformed'];
 
-const ATSAnalyzer: React.FC = () => {
+const getStatusIcon = (status: 'good' | 'warning' | 'error'): React.ReactElement => {
+  if (status === 'good') return <CheckCircle className="w-4 h-4 text-success" />;
+  if (status === 'warning') return <AlertCircle className="w-4 h-4 text-warning" />;
+  return <XCircle className="w-4 h-4 text-destructive" />;
+};
+
+const ATSAnalyzer = () => {
   const { toast } = useToast();
   const { incrementResumeAnalyzed, user } = useAuth();
   const [file, setFile] = useState<File | null>(null);
@@ -51,6 +66,10 @@ const ATSAnalyzer: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [resumeText, setResumeText] = useState<string>('');
+  const [jobDescriptionFile, setJobDescriptionFile] = useState<File | null>(null);
+  const [jobDescriptionText, setJobDescriptionText] = useState<string>('');
+  const [isJobDescriptionDragging, setIsJobDescriptionDragging] = useState(false);
+  const [jobDescriptionTextInput, setJobDescriptionTextInput] = useState<string>('');
 
 
 
@@ -88,27 +107,250 @@ const ATSAnalyzer: React.FC = () => {
     }
   };
 
+  const handleJobDescriptionDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsJobDescriptionDragging(true);
+  }, []);
+
+  const handleJobDescriptionDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsJobDescriptionDragging(false);
+  }, []);
+
+  const handleJobDescriptionDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsJobDescriptionDragging(false);
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile && (droppedFile.type === 'application/pdf' || droppedFile.name.endsWith('.docx') || droppedFile.type === 'text/plain')) {
+      setJobDescriptionFile(droppedFile);
+      setJobDescriptionText('');
+      setResult(null);
+    } else {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload a PDF, DOCX, or TXT file.",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
+  const handleJobDescriptionFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      setJobDescriptionFile(selectedFile);
+      setJobDescriptionText('');
+      setResult(null);
+    }
+  };
+
+  const handleJobDescriptionTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setJobDescriptionTextInput(e.target.value);
+    setJobDescriptionFile(null);
+    setResult(null);
+  };
+
 
 
   // Extract text from file
   const extractTextFromFile = async (file: File): Promise<string> => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const text = e.target?.result as string;
-        resolve(text || '');
-      };
-      reader.readAsText(file);
-    });
+    const fileType = file.type;
+    const fileName = file.name.toLowerCase();
+
+    if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
+      try {
+        // Handle PDF files
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let text = '';
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const pageText = content.items.map((item: any) => item.str || '').join(' ');
+          text += pageText + ' ';
+        }
+
+        const extractedText = text.trim();
+        if (!extractedText) {
+          throw new Error('No text content found in PDF. The PDF might be image-based or corrupted.');
+        }
+
+        return extractedText;
+      } catch (error) {
+        console.error('Error extracting text from PDF:', error);
+        if (error instanceof Error) {
+          throw new Error(`Failed to extract text from PDF: ${error.message}`);
+        }
+        throw new Error('Failed to extract text from PDF. Please ensure the PDF contains selectable text.');
+      }
+    } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || fileName.endsWith('.docx')) {
+      try {
+        // Handle DOCX files
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        return result.value;
+      } catch (error) {
+        console.error('Error extracting text from DOCX:', error);
+        throw new Error('Failed to extract text from DOCX file.');
+      }
+    } else {
+      // Handle TXT files
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const text = e.target?.result as string;
+          resolve(text || '');
+        };
+        reader.onerror = () => {
+          reject(new Error('Failed to read text file.'));
+        };
+        reader.readAsText(file);
+      });
+    }
   };
 
 
 
   // Analyze the resume content
-  const analyzeResumeContent = (text: string): AnalysisResult => {
+  const analyzeResumeContent = (text: string, jobDescriptionText?: string): AnalysisResult => {
     const lowerText = text.toLowerCase();
     let totalScore = 0;
     let maxScore = 0;
+
+    // Job Description Keyword Analysis - Focus on Skills Only
+    let jobDescriptionKeywords: AnalysisResult['jobDescriptionKeywords'] = [];
+    if (jobDescriptionText) {
+      const lowerJobText = jobDescriptionText.toLowerCase();
+
+      // Extract skills by focusing on skills-related sections and using better patterns
+      const extractSkillsFromJobDescription = (text: string): string[] => {
+        const lowerText = text.toLowerCase();
+
+        // Find skills sections (common section headers)
+        const skillsSectionPatterns = [
+          /skills?[:\s]*(required|needed|preferred)?[:\s]*/gi,
+          /requirements?[:\s]*/gi,
+          /qualifications?[:\s]*/gi,
+          /technical skills?[:\s]*/gi,
+          /key skills?[:\s]*/gi,
+          /competencies?[:\s]*/gi,
+          /what you'll need[:\s]*/gi,
+          /what we look for[:\s]*/gi,
+          /experience with[:\s]*/gi
+        ];
+
+        let skillsText = '';
+        let foundSection = false;
+
+        // Extract content from skills sections
+        for (const pattern of skillsSectionPatterns) {
+          const matches = text.match(pattern);
+          if (matches) {
+            foundSection = true;
+            // Extract content after the section header
+            const sections = text.split(pattern);
+            if (sections.length > 1) {
+              // Take the next few paragraphs after the header
+              const sectionContent = sections.slice(1).join(' ').substring(0, 2000);
+              skillsText += sectionContent + ' ';
+            }
+          }
+        }
+
+        // If no specific sections found, look for common skill indicators throughout the text
+        if (!foundSection) {
+          // Look for bullet points and numbered lists that often contain skills
+          const bulletPatterns = [
+            /(?:^|\n)[•\-\*\d+\.\)]\s*([^\n]+)/gm,
+            /(?:proficiency|experience|knowledge|skills?) (?:in|with|of) ([^,\.\n]+)/gi,
+            /familiarity with ([^,\.\n]+)/gi,
+            /working knowledge of ([^,\.\n]+)/gi
+          ];
+
+          for (const pattern of bulletPatterns) {
+            const matches = text.match(pattern);
+            if (matches) {
+              skillsText += matches.join(' ') + ' ';
+            }
+          }
+        }
+
+        // If still no skills found, use the entire text but prioritize technical content
+        if (!skillsText.trim()) {
+          skillsText = text;
+        }
+
+        // Extract potential skills using various patterns
+        const skillPatterns = [
+          // Programming languages and frameworks
+          /\b(javascript|python|java|c\+\+|c#|php|ruby|go|golang|rust|swift|kotlin|typescript|scala|perl|r|matlab|dart|lua)\b/gi,
+          // Web technologies
+          /\b(html|css|sass|scss|less|react|angular|vue|jquery|bootstrap|tailwind|webpack|babel|npm|yarn)\b/gi,
+          // Databases
+          /\b(sql|mysql|postgresql|mongodb|redis|cassandra|elasticsearch|oracle|sqlite|dynamodb)\b/gi,
+          // Cloud platforms
+          /\b(aws|azure|gcp|google cloud|heroku|digitalocean|linode|vercel|netlify)\b/gi,
+          // DevOps tools
+          /\b(docker|kubernetes|jenkins|gitlab|github actions|circleci|travis|terraform|ansible|puppet|chef)\b/gi,
+          // Version control
+          /\b(git|svn|mercurial|bitbucket|github|gitlab)\b/gi,
+          // Operating systems
+          /\b(linux|windows|macos|ubuntu|centos|debian|redhat|fedora)\b/gi,
+          // Soft skills and methodologies
+          /\b(agile|scrum|kanban|tdd|bdd|ci\/cd|devops|microservices|rest api|graphql|oauth|jwt)\b/gi,
+          // Business tools
+          /\b(excel|word|powerpoint|outlook|sharepoint|salesforce|sap|oracle erp|jira|confluence|slack|teams)\b/gi,
+          // Data and analytics
+          /\b(tableau|power bi|looker|qlik|pandas|numpy|tensorflow|pytorch|scikit-learn|matplotlib|seaborn)\b/gi,
+          // Design tools
+          /\b(figma|sketch|adobe|photoshop|illustrator|indesign|xd|zeplin|invision|maze)\b/gi,
+          // Project management
+          /\b(jira|trello|asana|monday|basecamp|clickup|notion|microsoft project)\b/gi
+        ];
+
+        const extractedSkills: string[] = [];
+
+        // Apply patterns to extract skills
+        for (const pattern of skillPatterns) {
+          const matches = skillsText.match(pattern);
+          if (matches) {
+            extractedSkills.push(...matches);
+          }
+        }
+
+        // Also extract skills from common delimiters in skills sections
+        const delimiters = /[,;•\-\*\n\r]+/;
+        const rawTerms = skillsText.split(delimiters).map(term => term.trim()).filter(term => term.length > 0);
+
+        // Filter for potential skills (longer terms, technical-looking)
+        const potentialSkills = rawTerms.filter(term => {
+          const lowerTerm = term.toLowerCase();
+          return (
+            lowerTerm.length > 2 &&
+            lowerTerm.length < 30 &&
+            !/\b(and|or|the|a|an|in|on|at|to|for|of|with|by|is|are|was|were|be|been|being|have|has|had|do|does|did|will|would|could|should|may|might|can|must|shall|we|you|they|he|she|it|this|that|these|those|i|me|my|your|his|her|its|our|their|us|them|who|what|where|when|why|how|which|all|any|both|each|few|many|most|some|such|no|nor|not|only|own|same|so|than|too|very|just|but|also|even|though|although|while|if|unless|until|before|after|since|because|experience|required|preferred|strong|excellent|good|knowledge|skills|ability|proven|demonstrated|years|months|degree|bachelor|master|phd|certification|license)\b/.test(lowerTerm) &&
+            /[a-zA-Z]/.test(lowerTerm) // Must contain letters
+          );
+        });
+
+        // Combine and deduplicate
+        const allSkills = [...extractedSkills, ...potentialSkills]
+          .map(skill => skill.toLowerCase().trim())
+          .filter(skill => skill.length > 2)
+          .filter((skill, index, arr) => arr.indexOf(skill) === index)
+          .slice(0, 25); // Limit to 25 skills
+
+        return allSkills;
+      };
+
+      const extractedSkills = extractSkillsFromJobDescription(jobDescriptionText);
+
+      // Match skills with resume content
+      extractedSkills.forEach(skill => {
+        const found = lowerText.includes(skill.toLowerCase());
+        jobDescriptionKeywords.push({ word: skill, found, importance: 'important' });
+      });
+    }
 
     // 1. Keyword Analysis (30 points max)
     const allKeywords = [...industryKeywords.tech, ...industryKeywords.management, ...industryKeywords.general];
@@ -288,6 +530,7 @@ const ATSAnalyzer: React.FC = () => {
       strengths,
       improvements,
       keywords: keywordResults.filter(k => k.importance === 'critical' || k.importance === 'important').slice(0, 12),
+      jobDescriptionKeywords,
       sectionScores,
       formatAnalysis
     };
@@ -303,11 +546,21 @@ const ATSAnalyzer: React.FC = () => {
       const text = await extractTextFromFile(file);
       setResumeText(text);
 
+      // Extract text from job description if provided
+      let jobDescText = '';
+      if (jobDescriptionFile) {
+        jobDescText = await extractTextFromFile(jobDescriptionFile);
+        setJobDescriptionText(jobDescText);
+      } else if (jobDescriptionTextInput.trim()) {
+        jobDescText = jobDescriptionTextInput.trim();
+        setJobDescriptionText(jobDescText);
+      }
+
       // Simulate processing time for UX
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       // Analyze the content
-      const analysisResult = analyzeResumeContent(text);
+      const analysisResult = analyzeResumeContent(text, jobDescText);
 
       setResult(analysisResult);
 
@@ -337,12 +590,6 @@ const ATSAnalyzer: React.FC = () => {
     if (priority === 'high') return 'bg-destructive/10 text-destructive';
     if (priority === 'medium') return 'bg-warning/10 text-warning';
     return 'bg-muted text-muted-foreground';
-  };
-
-  const getStatusIcon = (status: string) => {
-    if (status === 'good') return <CheckCircle className="w-4 h-4 text-success" />;
-    if (status === 'warning') return <AlertCircle className="w-4 h-4 text-warning" />;
-    return <XCircle className="w-4 h-4 text-destructive" />;
   };
 
   return (
@@ -428,29 +675,122 @@ const ATSAnalyzer: React.FC = () => {
                 )}
               </div>
 
-              <Button
-                variant="gradient"
-                size="lg"
-                className="w-full mt-4"
-                onClick={analyzeResume}
-                disabled={!file || isAnalyzing}
-              >
-                {isAnalyzing ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    Analyzing Resume...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    Analyze Resume
-                  </>
-                )}
-              </Button>
             </CardContent>
           </Card>
 
+          {/* Job Description Upload Card */}
+          <Card className="border-0 shadow-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="w-5 h-5 text-primary" />
+                Job Description (Optional)
+              </CardTitle>
+              <CardDescription>
+                Upload a job description to get tailored keyword analysis for that specific role
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* File Upload */}
+                <div
+                  className={`border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer ${
+                    isJobDescriptionDragging
+                      ? 'border-primary bg-primary/5'
+                      : jobDescriptionFile
+                      ? 'border-success bg-success/5'
+                      : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                  }`}
+                  onDragOver={handleJobDescriptionDragOver}
+                  onDragLeave={handleJobDescriptionDragLeave}
+                  onDrop={handleJobDescriptionDrop}
+                  onClick={() => document.getElementById('job-description-upload')?.click()}
+                >
+                  <input
+                    id="job-description-upload"
+                    type="file"
+                    accept=".pdf,.docx,.txt"
+                    className="hidden"
+                    onChange={handleJobDescriptionFileSelect}
+                  />
 
+                  {jobDescriptionFile ? (
+                    <div className="space-y-3">
+                      <div className="w-12 h-12 mx-auto rounded-xl bg-success/10 flex items-center justify-center">
+                        <FileText className="w-6 h-6 text-success" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{jobDescriptionFile.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(jobDescriptionFile.size / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setJobDescriptionFile(null);
+                          setJobDescriptionText('');
+                          setResult(null);
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="w-12 h-12 mx-auto rounded-xl bg-muted flex items-center justify-center">
+                        <Upload className="w-6 h-6 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">Drop job description here</p>
+                        <p className="text-xs text-muted-foreground">
+                          PDF, DOCX, or TXT files
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Or Text Input */}
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">Or paste text</span>
+                  </div>
+                </div>
+
+                <Textarea
+                  placeholder="Paste the job description text here..."
+                  value={jobDescriptionTextInput}
+                  onChange={handleJobDescriptionTextChange}
+                  className="min-h-[120px] resize-none"
+                />
+
+                <Button
+                  variant="gradient"
+                  size="lg"
+                  className="w-full mt-4"
+                  onClick={analyzeResume}
+                  disabled={!file || isAnalyzing}
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Analyzing Resume...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Analyze Resume
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* What We Analyze Card */}
           <Card className="border-0 shadow-card bg-primary/5">
@@ -619,6 +959,45 @@ const ATSAnalyzer: React.FC = () => {
                   </p>
                 </CardContent>
               </Card>
+
+              {/* Job Description Keywords */}
+              {result.jobDescriptionKeywords && result.jobDescriptionKeywords.length > 0 && (
+                <Card className="border-0 shadow-card">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Target className="w-5 h-5 text-primary" />
+                      Job-Specific Keywords
+                    </CardTitle>
+                    <CardDescription>
+                      Keywords extracted from the job description (green = found in resume, red = missing)
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                      {result.jobDescriptionKeywords.map((kw, index) => (
+                        <span
+                          key={index}
+                          className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-1.5 ${
+                            kw.found
+                              ? 'bg-success/10 text-success'
+                              : 'bg-destructive/10 text-destructive'
+                          }`}
+                        >
+                          {kw.found ? (
+                            <CheckCircle className="w-3 h-3" />
+                          ) : (
+                            <XCircle className="w-3 h-3" />
+                          )}
+                          {kw.word}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-3">
+                      These keywords are specific to the job you're targeting. Consider incorporating missing ones into your resume.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
 
             </>
           ) : (

@@ -39,7 +39,7 @@ interface AIChatBotProps {
   resumeText: string;
 }
 
-const AIChatBot = ({ analysisResult, resumeText }: AIChatBotProps) => {
+const AIChatBot: React.FC<AIChatBotProps> = ({ analysisResult, resumeText }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);

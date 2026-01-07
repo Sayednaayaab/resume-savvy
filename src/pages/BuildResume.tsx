@@ -66,12 +66,86 @@ interface ResumeData {
   hobbies: string[];
 }
 
+interface Template {
+  id: string;
+  name: string;
+  color: string;
+  popular: boolean;
+  fontFamily: string;
+  headerStyle: string;
+  spacing: string;
+  accentColor: string;
+  layout: string;
+  backgroundColor: string;
+  sectionStyle: string;
+}
+
 const templates = [
-  { id: 'professional', name: 'Professional', color: '#1E3A8A', popular: true },
-  { id: 'modern', name: 'Modern', color: '#0891B2', popular: false },
-  { id: 'creative', name: 'Creative', color: '#7C3AED', popular: false },
-  { id: 'executive', name: 'Executive', color: '#1F2937', popular: true },
-  { id: 'minimal', name: 'Minimal', color: '#6B7280', popular: false },
+  {
+    id: 'professional',
+    name: 'Professional',
+    color: '#000080',
+    popular: true,
+    fontFamily: '"Times New Roman", serif',
+    headerStyle: 'traditional',
+    spacing: 'compact',
+    accentColor: '#000080',
+    layout: 'traditional',
+    backgroundColor: '#FFFFFF',
+    sectionStyle: 'standard'
+  },
+  {
+    id: 'modern',
+    name: 'Modern',
+    color: '#008080',
+    popular: false,
+    fontFamily: '"Helvetica", sans-serif',
+    headerStyle: 'clean',
+    spacing: 'spacious',
+    accentColor: '#008080',
+    layout: 'accented',
+    backgroundColor: '#F5F5F5',
+    sectionStyle: 'bordered'
+  },
+  {
+    id: 'creative',
+    name: 'Creative',
+    color: '#FF4500',
+    popular: false,
+    fontFamily: '"Impact", sans-serif',
+    headerStyle: 'bold',
+    spacing: 'dynamic',
+    accentColor: '#FF4500',
+    layout: 'left-aligned',
+    backgroundColor: '#FFFFE0',
+    sectionStyle: 'colored'
+  },
+  {
+    id: 'executive',
+    name: 'Executive',
+    color: '#800080',
+    popular: true,
+    fontFamily: '"Garamond", serif',
+    headerStyle: 'elegant',
+    spacing: 'premium',
+    accentColor: '#800080',
+    layout: 'two-column',
+    backgroundColor: '#F0F8FF',
+    sectionStyle: 'spaced'
+  },
+  {
+    id: 'minimal',
+    name: 'Minimal',
+    color: '#FFA500',
+    popular: false,
+    fontFamily: '"Arial", sans-serif',
+    headerStyle: 'minimal',
+    spacing: 'generous',
+    accentColor: '#FFA500',
+    layout: 'centered',
+    backgroundColor: '#FFF8DC',
+    sectionStyle: 'minimal'
+  },
 ];
 
 // Predefined skills database
@@ -1258,13 +1332,41 @@ const BuildResume = () => {
               {/* Resume Preview */}
               <div
                 id="resume-preview"
-                className="bg-card p-6 text-sm"
-                style={{ borderLeft: `4px solid ${currentTemplate?.color}` }}
+                className={`p-6 text-sm ${
+                  currentTemplate?.layout === 'two-column' ? 'grid grid-cols-2 gap-6' : ''
+                }`}
+                style={{
+                  backgroundColor: currentTemplate?.backgroundColor || '#FFFFFF',
+                  borderLeft: currentTemplate?.layout === 'accented' ? `4px solid ${currentTemplate?.color}` : `4px solid ${currentTemplate?.color}`,
+                  fontFamily: currentTemplate?.fontFamily,
+                  padding: currentTemplate?.spacing === 'compact' ? '1rem' :
+                          currentTemplate?.spacing === 'spacious' ? '2rem' :
+                          currentTemplate?.spacing === 'premium' ? '1.5rem' :
+                          currentTemplate?.spacing === 'generous' ? '2.5rem' : '1.5rem',
+                  textAlign: currentTemplate?.layout === 'centered' ? 'center' : 'left'
+                }}
               >
-                <div className="space-y-3">
+                <div className={`space-y-${currentTemplate?.spacing === 'compact' ? '2' :
+                                currentTemplate?.spacing === 'spacious' ? '4' :
+                                currentTemplate?.spacing === 'premium' ? '3' :
+                                currentTemplate?.spacing === 'generous' ? '5' : '3'} ${
+                  currentTemplate?.sectionStyle === 'spaced' ? 'space-y-6' : ''
+                }`}>
                   {/* Header */}
-                  <div className="text-center border-b border-border pb-3">
-                    <h2 className="text-xl font-bold" style={{ color: currentTemplate?.color }}>
+                  <div className={`text-center border-b border-border pb-3 ${
+                    currentTemplate?.headerStyle === 'traditional' ? 'border-b-2' :
+                    currentTemplate?.headerStyle === 'clean' ? 'border-b' :
+                    currentTemplate?.headerStyle === 'bold' ? 'border-b-4' :
+                    currentTemplate?.headerStyle === 'elegant' ? 'border-b-2 border-dashed' :
+                    currentTemplate?.headerStyle === 'minimal' ? 'border-b border-opacity-50' : 'border-b'
+                  }`}>
+                    <h2 className={`text-xl ${
+                      currentTemplate?.headerStyle === 'traditional' ? 'font-serif font-bold' :
+                      currentTemplate?.headerStyle === 'clean' ? 'font-sans font-semibold' :
+                      currentTemplate?.headerStyle === 'bold' ? 'font-black text-2xl' :
+                      currentTemplate?.headerStyle === 'elegant' ? 'font-serif font-bold italic' :
+                      currentTemplate?.headerStyle === 'minimal' ? 'font-light' : 'font-bold'
+                    }`} style={{ color: currentTemplate?.accentColor || currentTemplate?.color }}>
                       {resumeData.personal.fullName}
                     </h2>
                     <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground mt-2 flex-wrap">
@@ -1299,11 +1401,19 @@ const BuildResume = () => {
 
                   {/* Summary */}
                   {resumeData.personal.summary && (
-                    <div>
-                      <h3 className="font-semibold text-xs uppercase tracking-wider mb-1" style={{ color: currentTemplate?.color }}>
+                    <div className={`${
+                      currentTemplate?.spacing === 'compact' ? 'mb-2' :
+                      currentTemplate?.spacing === 'spacious' ? 'mb-4' :
+                      currentTemplate?.spacing === 'premium' ? 'mb-3' :
+                      currentTemplate?.spacing === 'generous' ? 'mb-5' : 'mb-3'
+                    }`}>
+                      <h3 className={`font-semibold text-xs uppercase tracking-wider mb-1 ${
+                        currentTemplate?.headerStyle === 'bold' ? 'font-bold' :
+                        currentTemplate?.headerStyle === 'minimal' ? 'font-light' : 'font-semibold'
+                      }`} style={{ color: currentTemplate?.accentColor || currentTemplate?.color }}>
                         Summary
                       </h3>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground leading-relaxed">
                         {resumeData.personal.summary}
                       </p>
                     </div>
@@ -1311,20 +1421,38 @@ const BuildResume = () => {
 
                   {/* Experience */}
                   {resumeData.experience.length > 0 && resumeData.experience.some(exp => exp.title) && (
-                    <div>
-                      <h3 className="font-semibold text-xs uppercase tracking-wider mb-2" style={{ color: currentTemplate?.color }}>
+                    <div className={`${
+                      currentTemplate?.spacing === 'compact' ? 'mb-2' :
+                      currentTemplate?.spacing === 'spacious' ? 'mb-4' :
+                      currentTemplate?.spacing === 'premium' ? 'mb-3' :
+                      currentTemplate?.spacing === 'generous' ? 'mb-5' : 'mb-3'
+                    }`}>
+                      <h3 className={`font-semibold text-xs uppercase tracking-wider mb-2 ${
+                        currentTemplate?.headerStyle === 'bold' ? 'font-bold' :
+                        currentTemplate?.headerStyle === 'minimal' ? 'font-light' : 'font-semibold'
+                      }`} style={{ color: currentTemplate?.accentColor || currentTemplate?.color }}>
                         Experience
                       </h3>
                       {resumeData.experience.filter(exp => exp.title).map((exp, index) => (
-                        <div key={index} className="mb-2">
+                        <div key={index} className={`mb-2 ${
+                          currentTemplate?.spacing === 'compact' ? 'mb-1' :
+                          currentTemplate?.spacing === 'spacious' ? 'mb-3' :
+                          currentTemplate?.spacing === 'premium' ? 'mb-2' :
+                          currentTemplate?.spacing === 'generous' ? 'mb-4' : 'mb-2'
+                        }`}>
                           <div className="flex justify-between items-start">
                             <div>
-                              <p className="font-medium text-xs">{exp.title}</p>
+                              <p className={`font-medium text-xs ${
+                                currentTemplate?.headerStyle === 'bold' ? 'font-semibold' :
+                                currentTemplate?.headerStyle === 'minimal' ? 'font-normal' : 'font-medium'
+                              }`} style={{ color: currentTemplate?.accentColor || currentTemplate?.color }}>
+                                {exp.title}
+                              </p>
                               <p className="text-xs text-muted-foreground">{exp.company}</p>
                             </div>
                             <span className="text-xs text-muted-foreground">{exp.duration}</span>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1">{exp.description}</p>
+                          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{exp.description}</p>
                         </div>
                       ))}
                     </div>
@@ -1332,21 +1460,39 @@ const BuildResume = () => {
 
                   {/* Projects */}
                   {resumeData.projects.length > 0 && resumeData.projects.some(p => p.name) && (
-                    <div>
-                      <h3 className="font-semibold text-xs uppercase tracking-wider mb-2" style={{ color: currentTemplate?.color }}>
+                    <div className={`${
+                      currentTemplate?.spacing === 'compact' ? 'mb-2' :
+                      currentTemplate?.spacing === 'spacious' ? 'mb-4' :
+                      currentTemplate?.spacing === 'premium' ? 'mb-3' :
+                      currentTemplate?.spacing === 'generous' ? 'mb-5' : 'mb-3'
+                    }`}>
+                      <h3 className={`font-semibold text-xs uppercase tracking-wider mb-2 ${
+                        currentTemplate?.headerStyle === 'bold' ? 'font-bold' :
+                        currentTemplate?.headerStyle === 'minimal' ? 'font-light' : 'font-semibold'
+                      }`} style={{ color: currentTemplate?.accentColor || currentTemplate?.color }}>
                         Projects
                       </h3>
                       {resumeData.projects.filter(p => p.name).map((project, index) => (
-                        <div key={index} className="mb-2">
+                        <div key={index} className={`mb-2 ${
+                          currentTemplate?.spacing === 'compact' ? 'mb-1' :
+                          currentTemplate?.spacing === 'spacious' ? 'mb-3' :
+                          currentTemplate?.spacing === 'premium' ? 'mb-2' :
+                          currentTemplate?.spacing === 'generous' ? 'mb-4' : 'mb-2'
+                        }`}>
                           <div className="flex justify-between items-start">
-                            <p className="font-medium text-xs">{project.name}</p>
+                            <p className={`font-medium text-xs ${
+                              currentTemplate?.headerStyle === 'bold' ? 'font-semibold' :
+                              currentTemplate?.headerStyle === 'minimal' ? 'font-normal' : 'font-medium'
+                            }`} style={{ color: currentTemplate?.accentColor || currentTemplate?.color }}>
+                              {project.name}
+                            </p>
                             {project.repoLink && (
                               <span className="text-xs text-primary flex items-center gap-0.5">
                                 <Github className="w-2.5 h-2.5" />
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground">{project.description}</p>
+                          <p className="text-xs text-muted-foreground leading-relaxed">{project.description}</p>
                           {project.technologies && (
                             <p className="text-xs text-muted-foreground/70 mt-0.5">
                               Tech: {project.technologies}
@@ -1359,14 +1505,32 @@ const BuildResume = () => {
 
                   {/* Education */}
                   {resumeData.education.length > 0 && resumeData.education.some(edu => edu.degree) && (
-                    <div>
-                      <h3 className="font-semibold text-xs uppercase tracking-wider mb-2" style={{ color: currentTemplate?.color }}>
+                    <div className={`${
+                      currentTemplate?.spacing === 'compact' ? 'mb-2' :
+                      currentTemplate?.spacing === 'spacious' ? 'mb-4' :
+                      currentTemplate?.spacing === 'premium' ? 'mb-3' :
+                      currentTemplate?.spacing === 'generous' ? 'mb-5' : 'mb-3'
+                    }`}>
+                      <h3 className={`font-semibold text-xs uppercase tracking-wider mb-2 ${
+                        currentTemplate?.headerStyle === 'bold' ? 'font-bold' :
+                        currentTemplate?.headerStyle === 'minimal' ? 'font-light' : 'font-semibold'
+                      }`} style={{ color: currentTemplate?.accentColor || currentTemplate?.color }}>
                         Education
                       </h3>
                       {resumeData.education.filter(edu => edu.degree).map((edu, index) => (
-                        <div key={index} className="flex justify-between">
+                        <div key={index} className={`flex justify-between ${
+                          currentTemplate?.spacing === 'compact' ? 'mb-1' :
+                          currentTemplate?.spacing === 'spacious' ? 'mb-3' :
+                          currentTemplate?.spacing === 'premium' ? 'mb-2' :
+                          currentTemplate?.spacing === 'generous' ? 'mb-4' : 'mb-2'
+                        }`}>
                           <div>
-                            <p className="font-medium text-xs">{edu.degree}</p>
+                            <p className={`font-medium text-xs ${
+                              currentTemplate?.headerStyle === 'bold' ? 'font-semibold' :
+                              currentTemplate?.headerStyle === 'minimal' ? 'font-normal' : 'font-medium'
+                            }`} style={{ color: currentTemplate?.accentColor || currentTemplate?.color }}>
+                              {edu.degree}
+                            </p>
                             <p className="text-xs text-muted-foreground">{edu.school}</p>
                           </div>
                           <span className="text-xs text-muted-foreground">{edu.year}</span>
@@ -1377,16 +1541,35 @@ const BuildResume = () => {
 
                   {/* Skills */}
                   {resumeData.skills.length > 0 && (
-                    <div>
-                      <h3 className="font-semibold text-xs uppercase tracking-wider mb-2" style={{ color: currentTemplate?.color }}>
+                    <div className={`${
+                      currentTemplate?.spacing === 'compact' ? 'mb-2' :
+                      currentTemplate?.spacing === 'spacious' ? 'mb-4' :
+                      currentTemplate?.spacing === 'premium' ? 'mb-3' :
+                      currentTemplate?.spacing === 'generous' ? 'mb-5' : 'mb-3'
+                    }`}>
+                      <h3 className={`font-semibold text-xs uppercase tracking-wider mb-2 ${
+                        currentTemplate?.headerStyle === 'bold' ? 'font-bold' :
+                        currentTemplate?.headerStyle === 'minimal' ? 'font-light' : 'font-semibold'
+                      }`} style={{ color: currentTemplate?.accentColor || currentTemplate?.color }}>
                         Skills
                       </h3>
-                      <div className="flex flex-wrap gap-1">
+                      <div className={`flex flex-wrap gap-1 ${
+                        currentTemplate?.spacing === 'compact' ? 'gap-0.5' :
+                        currentTemplate?.spacing === 'spacious' ? 'gap-2' :
+                        currentTemplate?.spacing === 'premium' ? 'gap-1' :
+                        currentTemplate?.spacing === 'generous' ? 'gap-2' : 'gap-1'
+                      }`}>
                         {resumeData.skills.map((skill, index) => (
                           <span
                             key={index}
-                            className="px-2 py-0.5 rounded text-xs"
-                            style={{ backgroundColor: currentTemplate?.color + '15', color: currentTemplate?.color }}
+                            className={`px-2 py-0.5 rounded text-xs ${
+                              currentTemplate?.headerStyle === 'bold' ? 'font-semibold' :
+                              currentTemplate?.headerStyle === 'minimal' ? 'font-light' : 'font-medium'
+                            }`}
+                            style={{
+                              backgroundColor: currentTemplate?.color + '15',
+                              color: currentTemplate?.accentColor || currentTemplate?.color
+                            }}
                           >
                             {skill}
                           </span>
@@ -1398,10 +1581,13 @@ const BuildResume = () => {
                   {/* Hobbies */}
                   {resumeData.hobbies.length > 0 && (
                     <div>
-                      <h3 className="font-semibold text-xs uppercase tracking-wider mb-2" style={{ color: currentTemplate?.color }}>
+                      <h3 className={`font-semibold text-xs uppercase tracking-wider mb-2 ${
+                        currentTemplate?.headerStyle === 'bold' ? 'font-bold' :
+                        currentTemplate?.headerStyle === 'minimal' ? 'font-light' : 'font-semibold'
+                      }`} style={{ color: currentTemplate?.accentColor || currentTemplate?.color }}>
                         Interests
                       </h3>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground leading-relaxed">
                         {resumeData.hobbies.join(' • ')}
                       </p>
                     </div>
