@@ -129,39 +129,93 @@
 
 ## 📸 Screenshots
 
-### 🏠 Dashboard
-<div align="center">
- <img width="1919" height="867" alt="image" src="https://github.com/user-attachments/assets/bb564270-8485-44ad-9a04-792082f6ab58" />
+## 🚀 Product Showcase
 
-  <p><em>Login page with google authentication</em></p>
+---
+
+### 🏠 Login Page with Google authentication 
+
+<div align="center">
+
+<img src="https://github.com/user-attachments/assets/bb564270-8485-44ad-9a04-792082f6ab58"
+     alt="Intelligent Dashboard"
+     width="95%"
+     style="border-radius:14px; border:1px solid #e5e7eb;" />
+
+<p><em>Modern authentication system with secure Google login and a clean, user-focused dashboard interface.</em></p>
+
 </div>
 
-### 📝 Resume Builder
-<div align="center">
-  <img width="1899" height="865" alt="image" src="https://github.com/user-attachments/assets/8cff44f4-9b65-4bef-811f-23bf1d817b4a" />
+<br/>
 
-  <p><em>Home page</em></p>
+---
+
+### 📝 Home Page
+
+<div align="center">
+
+<img src="https://github.com/user-attachments/assets/8cff44f4-9b65-4bef-811f-23bf1d817b4a"
+     alt="Smart Resume Builder"
+     width="95%"
+     style="border-radius:14px; border:1px solid #e5e7eb;" />
+
+<p><em>Provides insights of the whole site</em></p>
+
 </div>
 
-### 🤖 AI ChatBot
-<div align="center">
-  <img width="1904" height="867" alt="image" src="https://github.com/user-attachments/assets/1aaaf47f-12d4-48d6-9a1b-91049fa33e13" />
+<br/>
 
-  <p><em>Resume Builder</em></p>
+---
+
+### 🤖 Resume Builder
+
+<div align= "center">
+
+<img src="https://github.com/user-attachments/assets/1aaaf47f-12d4-48d6-9a1b-91049fa33e13"
+     alt="AI Career Assistant"
+     width="95%"
+     style="border-radius:14px; border:1px solid #e5e7eb;" />
+
+<p><em>Builds Resume with live preview.</em></p>
+
 </div>
+
+<br/>
+
+---
 
 ### 🔍 ATS Analyzer
+
 <div align="center">
- <img width="1898" height="868" alt="image" src="https://github.com/user-attachments/assets/ac6c4b5d-b446-46af-b6f2-ee7a71d90c15" />
 
-  <p><em>Detailed ATS scoring and optimization tips</em></p>
+<img src="https://github.com/user-attachments/assets/ac6c4b5d-b446-46af-b6f2-ee7a71d90c15"
+     alt="ATS Analyzer"
+     width="95%"
+     style="border-radius:14px; border:1px solid #e5e7eb;" />
+
+<p><em>Provides ATS Score for the input resume.</em></p>
+
 </div>
+
+<br/>
+
+---
+
+### 🛠 Admin Control Panel
+
 <div align="center">
-<img width="1919" height="866" alt="image" src="https://github.com/user-attachments/assets/a8433b89-5b94-401d-af86-e10601f7975f" />
 
+<img src="https://github.com/user-attachments/assets/a8433b89-5b94-401d-af86-e10601f7975f"
+     alt="Admin Control Panel"
+     width="95%"
+     style="border-radius:14px; border:1px solid #e5e7eb;" />
 
-  <p><em>admin login/user info</em></p>
+<p><em>Secure admin login with user management and system overview dashboard.</em></p>
+
 </div>
+
+---
+
 
 ## 🗺️ Roadmap
 
