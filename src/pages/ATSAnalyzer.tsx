@@ -39,6 +39,9 @@ interface AnalysisResult {
   jobDescriptionKeywords?: { word: string; found: boolean; importance: 'critical' | 'important' | 'nice-to-have' }[];
   sectionScores: { section: string; score: number; feedback: string }[];
   formatAnalysis: { aspect: string; status: 'good' | 'warning' | 'error'; message: string }[];
+  summary?: string;
+  contentPresent?: string[];
+  contentAbsent?: string[];
 }
 
 // Comprehensive keyword database for different industries
@@ -166,7 +169,7 @@ const ATSAnalyzer = () => {
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
           const content = await page.getTextContent();
-          const pageText = content.items.map((item: any) => item.str || '').join(' ');
+          const pageText = content.items.map((item: {str?: string}) => item.str || '').join(' ');
           text += pageText + ' ';
         }
 
@@ -211,6 +214,33 @@ const ATSAnalyzer = () => {
 
 
 
+  // API endpoint for resume analysis
+  const apiAnalyzeResume = async (text: string, jobDescriptionText?: string): Promise<AnalysisResult> => {
+    try {
+      const response = await fetch('/api/analyze-ats', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          resumeText: text,
+          jobDescriptionText: jobDescriptionText || null
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to analyze resume');
+      }
+
+      const result = await response.json();
+      return result as AnalysisResult;
+    } catch (error) {
+      console.error('Error calling analyze-ats API:', error);
+      throw error;
+    }
+  };
+
   // Analyze the resume content
   const analyzeResumeContent = (text: string, jobDescriptionText?: string): AnalysisResult => {
     const lowerText = text.toLowerCase();
@@ -218,7 +248,7 @@ const ATSAnalyzer = () => {
     let maxScore = 0;
 
     // Job Description Keyword Analysis - Focus on Skills Only
-    let jobDescriptionKeywords: AnalysisResult['jobDescriptionKeywords'] = [];
+    const jobDescriptionKeywords: AnalysisResult['jobDescriptionKeywords'] = [];
     if (jobDescriptionText) {
       const lowerJobText = jobDescriptionText.toLowerCase();
 
@@ -556,11 +586,8 @@ const ATSAnalyzer = () => {
         setJobDescriptionText(jobDescText);
       }
 
-      // Simulate processing time for UX
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Analyze the content
-      const analysisResult = analyzeResumeContent(text, jobDescText);
+      // Call API to analyze the resume
+      const analysisResult = await apiAnalyzeResume(text, jobDescText);
 
       setResult(analysisResult);
 
@@ -570,9 +597,10 @@ const ATSAnalyzer = () => {
         description: `Your resume scored ${analysisResult.score}%!`,
       });
     } catch (error) {
+      console.error('Analysis error:', error);
       toast({
         title: "Analysis Error",
-        description: "Failed to analyze the resume. Please try a different file format.",
+        description: "Failed to analyze the resume. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -839,7 +867,75 @@ const ATSAnalyzer = () => {
                 </CardContent>
               </Card>
 
-              {/* Format Analysis */}
+              {/* Resume Summary */}
+              {result.summary && (
+                <Card className="border-0 shadow-card">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-primary" />
+                      Resume Summary
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-sm text-muted-foreground whitespace-pre-line">
+                      {result.summary}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Content Present & Absent */}
+              {(result.contentPresent || result.contentAbsent) && (
+                <div className="grid grid-cols-1 gap-4">
+                  {result.contentPresent && result.contentPresent.length > 0 && (
+                    <Card className="border-0 shadow-card">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <CheckCircle className="w-5 h-5 text-success" />
+                          Content Present
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-wrap gap-2">
+                          {result.contentPresent.map((item, index) => (
+                            <span
+                              key={index}
+                              className="px-3 py-1.5 rounded-full text-sm font-medium bg-success/10 text-success flex items-center gap-1.5"
+                            >
+                              <CheckCircle className="w-3 h-3" />
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {result.contentAbsent && result.contentAbsent.length > 0 && (
+                    <Card className="border-0 shadow-card">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <XCircle className="w-5 h-5 text-destructive" />
+                          Content Missing
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-wrap gap-2">
+                          {result.contentAbsent.map((item, index) => (
+                            <span
+                              key={index}
+                              className="px-3 py-1.5 rounded-full text-sm font-medium bg-destructive/10 text-destructive flex items-center gap-1.5"
+                            >
+                              <XCircle className="w-3 h-3" />
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
               <Card className="border-0 shadow-card">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
@@ -898,21 +994,24 @@ const ATSAnalyzer = () => {
                       Suggested Improvements ({result.improvements.length})
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2">
+                  <CardContent className="space-y-3">
                     {result.improvements.map((improvement, index) => (
                       <div 
                         key={index}
-                        className="flex items-start gap-3 p-3 rounded-lg bg-warning/5"
+                        className="flex items-start gap-3 p-4 rounded-lg bg-warning/5 border border-warning/20"
                       >
-                        <ArrowRight className="w-4 h-4 text-warning mt-0.5 shrink-0" />
                         <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">{improvement.title}</span>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium uppercase ${getPriorityColor(improvement.priority)}`}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`text-sm font-semibold ${improvement.priority === 'high' ? 'text-destructive' : improvement.priority === 'medium' ? 'text-warning' : 'text-muted-foreground'}`}>
+                              {improvement.title}
+                            </span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${getPriorityColor(improvement.priority)}`}>
                               {improvement.priority}
                             </span>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">{improvement.description}</p>
+                          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                            {improvement.description}
+                          </p>
                         </div>
                       </div>
                     ))}
